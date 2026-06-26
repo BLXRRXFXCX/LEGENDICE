@@ -240,3 +240,21 @@ export function deleteGame(gameId) {
 }
 
 console.log('🔥 Firebase инициализирован. Режим:', navigator.onLine ? 'онлайн' : 'офлайн');
+
+// js/firebase.js - добавить в конец файла
+
+export {
+    signInAnonymously,
+    getCurrentUser,
+    getGameData,
+    createGame,
+    joinGame,
+    updateGameState,
+    subscribeToGame,
+    unsubscribeFromGame,
+    sendChatMessage,
+    sendPing,
+    setPlayerReady,
+    updatePlayerPosition,
+    deleteGame
+};
