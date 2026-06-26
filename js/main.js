@@ -4,7 +4,7 @@
 
 // ----- ИМПОРТЫ -----
 // Временно отключаем Firebase для теста
-// import './firebase.js';
+import './firebase.js';
 
 console.log('✅ main.js загружен!');
 
@@ -16,24 +16,39 @@ let isMyTurn = false;  // ТОЛЬКО ОДНО ОБЪЯВЛЕНИЕ!
 let myClass = null;
 
 // ----- ИНИЦИАЛИЗАЦИЯ -----
+import { signInAnonymously, getCurrentUser } from './firebase.js';
+
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🎲 LEGENDICE - загрузка...');
     
     try {
-        // Скрываем загрузку
+        // 1. ВХОДИМ В FIREBASE АНОНИМНО
+        console.log('🔐 Попытка входа в Firebase...');
+        const user = await signInAnonymously();
+        console.log('✅ Вход выполнен! UID:', user.uid);
+        
+        // 2. Скрываем загрузку
         const loading = document.getElementById('loading-screen');
         if (loading) loading.style.display = 'none';
         
-        // Показываем лобби
+        // 3. Показываем лобби
         showLobbyScreen();
         
-        console.log('✅ LEGENDICE загружена!');
+        // 4. (Опционально) Показываем ID игрока в лобби
+        const playerIdEl = document.getElementById('lobby-player-id');
+        if (playerIdEl) {
+            playerIdEl.textContent = user.uid.slice(0, 8) + '...';
+        }
+        
+        console.log('✅ LEGENDICE загружена с Firebase!');
     } catch (error) {
         console.error('❌ Ошибка инициализации:', error);
         document.getElementById('loading-screen').innerHTML = `
-            <h1>❌ Ошибка</h1>
-            <p>${error.message}</p>
-            <button onclick="location.reload()">Перезагрузить</button>
+            <h1>❌ Ошибка Firebase</h1>
+            <p style="color:#ff6b6b;">${error.message}</p>
+            <button onclick="location.reload()" style="padding:10px 20px; border-radius:8px; border:none; background:#f0c040; color:#000; font-weight:bold; margin-top:15px;">
+                Перезагрузить
+            </button>
         `;
     }
 });
