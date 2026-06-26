@@ -1020,7 +1020,11 @@ function showMapModal() {
 
 window.closeModal = closeModal;
 window.closeDiceModal = closeDiceModal;
-window.selectRoom = window.selectRoom;
-window.selectEnemyTarget = window.selectEnemyTarget;
+window.selectRoom = selectRoom;
+window.selectEnemyTarget = selectEnemyTarget;
+window.openChestAction = openChestAction;
+window.buyShopAction = buyShopAction;
+window.restHealAction = restHealAction;
+window.confirmDiceDistribution = confirmDiceDistribution;
 
 console.log('🎲 LEGENDICE - main.js загружен!');
