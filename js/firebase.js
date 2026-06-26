@@ -1,9 +1,9 @@
 // ============================================================
 // LEGENDICE - firebase.js
-// Подключение Firebase, аутентификация, синхронизация с Firestore
+// Подключение Firebase, аутентификация, синхронизация
 // ============================================================
 
-// ----- КОНФИГУРАЦИЯ FIREBASE (замените на свои данные) -----
+// ----- КОНФИГУРАЦИЯ FIREBASE (ЗАМЕНИТЕ НА СВОЙ) -----
 const firebaseConfig = {
     apiKey: "AIzaSyAn-mNXyJYWPAGb_jqsCt38pu5pwq0_pBA",
     authDomain: "legendice.firebaseapp.com",
@@ -19,7 +19,6 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 
-// ----- СОСТОЯНИЕ ИГРОКА -----
 let currentUser = null;
 let currentGameId = null;
 let unsubscribeGame = null;
@@ -38,30 +37,37 @@ export function signInAnonymously() {
         });
 }
 
-// ----- ПОЛУЧИТЬ ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ -----
 export function getCurrentUser() {
-    return currentUser;
+    return currentUser || auth.currentUser;
 }
 
-// ----- СОЗДАТЬ ИГРУ (ЛОББИ) -----
+// ----- СОЗДАТЬ ИГРУ -----
 export function createGame(playerName, playerClass) {
-    if (!currentUser) {
+    if (!getCurrentUser()) {
         return Promise.reject(new Error('Пользователь не аутентифицирован'));
     }
     
+    const user = getCurrentUser();
     const gameData = {
         status: 'lobby',
-        maxPlayers: 2,
+        maxPlayers: 4,
         players: {
             player1: {
-                uid: currentUser.uid,
+                uid: user.uid,
                 name: playerName || 'Игрок 1',
                 class: playerClass,
                 isReady: false,
                 isAlive: true,
-                isShadow: false
+                isShadow: false,
+                hp: 20,
+                maxHp: 20,
+                position: null,
+                slots: {},
+                inventory: []
             },
-            player2: null
+            player2: null,
+            player3: null,
+            player4: null
         },
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -75,12 +81,13 @@ export function createGame(playerName, playerClass) {
         });
 }
 
-// ----- ПОДКЛЮЧИТЬСЯ К ИГРЕ ПО ID -----
+// ----- ПОДКЛЮЧИТЬСЯ К ИГРЕ -----
 export function joinGame(gameId, playerName, playerClass) {
-    if (!currentUser) {
+    if (!getCurrentUser()) {
         return Promise.reject(new Error('Пользователь не аутентифицирован'));
     }
     
+    const user = getCurrentUser();
     const gameRef = db.collection('games').doc(gameId);
     
     return gameRef.get()
@@ -90,35 +97,29 @@ export function joinGame(gameId, playerName, playerClass) {
             }
             const data = doc.data();
             
-            // Проверяем, есть ли место
-            if (data.players.player1 && data.players.player2) {
-                throw new Error('В игре уже 2 игрока');
-            }
+            // Ищем свободный слот
+            let slot = null;
+            if (!data.players.player1) slot = 'player1';
+            else if (!data.players.player2) slot = 'player2';
+            else if (!data.players.player3) slot = 'player3';
+            else if (!data.players.player4) slot = 'player4';
+            else throw new Error('В игре нет свободных мест');
             
-            // Присоединяемся как player2
-            const updateData = {
-                'players.player2': {
-                    uid: currentUser.uid,
-                    name: playerName || 'Игрок 2',
-                    class: playerClass,
-                    isReady: false,
-                    isAlive: true,
-                    isShadow: false
-                },
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            const updateData = {};
+            updateData[`players.${slot}`] = {
+                uid: user.uid,
+                name: playerName || 'Игрок',
+                class: playerClass,
+                isReady: false,
+                isAlive: true,
+                isShadow: false,
+                hp: 20,
+                maxHp: 20,
+                position: null,
+                slots: {},
+                inventory: []
             };
-            
-            // Если player1 нет (редкий случай) — присоединяемся как player1
-            if (!data.players.player1) {
-                updateData['players.player1'] = {
-                    uid: currentUser.uid,
-                    name: playerName || 'Игрок 1',
-                    class: playerClass,
-                    isReady: false,
-                    isAlive: true,
-                    isShadow: false
-                };
-            }
+            updateData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
             
             return gameRef.update(updateData);
         })
@@ -129,24 +130,14 @@ export function joinGame(gameId, playerName, playerClass) {
         });
 }
 
-// ----- ОБНОВИТЬ СТАТУС ГОТОВНОСТИ ИГРОКА -----
-export function setPlayerReady(gameId, playerId, isReady) {
-    const gameRef = db.collection('games').doc(gameId);
-    const updateData = {};
-    updateData[`players.${playerId}.isReady`] = isReady;
-    updateData['updatedAt'] = firebase.firestore.FieldValue.serverTimestamp();
-    
-    return gameRef.update(updateData);
-}
-
-// ----- ОБНОВИТЬ СОСТОЯНИЕ ИГРЫ (ход, бой, карта) -----
+// ----- ОБНОВИТЬ СОСТОЯНИЕ ИГРЫ -----
 export function updateGameState(gameId, data) {
     const gameRef = db.collection('games').doc(gameId);
     data.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
     return gameRef.update(data);
 }
 
-// ----- ПОДПИСАТЬСЯ НА ИЗМЕНЕНИЯ ИГРЫ -----
+// ----- ПОДПИСАТЬСЯ НА ИЗМЕНЕНИЯ -----
 export function subscribeToGame(gameId, callback) {
     if (unsubscribeGame) {
         unsubscribeGame();
@@ -160,7 +151,6 @@ export function subscribeToGame(gameId, callback) {
             data.id = snapshot.id;
             callback(data);
         } else {
-            console.warn('⚠️ Игра не найдена');
             callback(null);
         }
     }, (error) => {
@@ -170,7 +160,7 @@ export function subscribeToGame(gameId, callback) {
     return unsubscribeGame;
 }
 
-// ----- ОТПИСАТЬСЯ ОТ ИГРЫ -----
+// ----- ОТПИСАТЬСЯ -----
 export function unsubscribeFromGame() {
     if (unsubscribeGame) {
         unsubscribeGame();
@@ -178,87 +168,40 @@ export function unsubscribeFromGame() {
     }
 }
 
-// ----- ЗАПИСАТЬ СООБЩЕНИЕ В ЧАТ -----
+// ----- ОТПРАВИТЬ СООБЩЕНИЕ В ЧАТ -----
 export function sendChatMessage(gameId, playerId, message) {
     const gameRef = db.collection('games').doc(gameId);
-    const chatMessage = {
-        player: playerId,
-        message: message,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    };
-    
     return gameRef.update({
-        chat: firebase.firestore.FieldValue.arrayUnion(chatMessage),
+        chat: firebase.firestore.FieldValue.arrayUnion({
+            player: playerId,
+            message: message,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        }),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
 }
 
-// ----- ЗАПИСАТЬ ПИНГ НА КАРТЕ -----
+// ----- ОТПРАВИТЬ ПИНГ -----
 export function sendPing(gameId, playerId, roomId, emoji) {
     const gameRef = db.collection('games').doc(gameId);
-    const ping = {
-        player: playerId,
-        roomId: roomId,
-        emoji: emoji,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    };
-    
     return gameRef.update({
-        pings: firebase.firestore.FieldValue.arrayUnion(ping),
+        pings: firebase.firestore.FieldValue.arrayUnion({
+            player: playerId,
+            roomId: roomId,
+            emoji: emoji,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        }),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
 }
 
-// ----- ОБНОВИТЬ ПОЗИЦИЮ ИГРОКА (комната) -----
-export function updatePlayerPosition(gameId, playerId, roomId) {
+// ----- ГОТОВНОСТЬ ИГРОКА -----
+export function setPlayerReady(gameId, playerId, isReady) {
     const gameRef = db.collection('games').doc(gameId);
     const updateData = {};
-    updateData[`players.${playerId}.position`] = roomId;
-    updateData['updatedAt'] = firebase.firestore.FieldValue.serverTimestamp();
-    
+    updateData[`players.${playerId}.isReady`] = isReady;
+    updateData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
     return gameRef.update(updateData);
 }
 
-// ----- УДАЛИТЬ ИГРУ (при завершении) -----
-export function deleteGame(gameId) {
-    return db.collection('games').doc(gameId).delete()
-        .then(() => {
-            console.log('🗑️ Игра удалена');
-            currentGameId = null;
-        });
-}
-
-// ----- ПОЛУЧИТЬ СПИСОК АКТИВНЫХ ИГР (для лобби) -----
-export function getActiveGames() {
-    return db.collection('games')
-        .where('status', 'in', ['lobby', 'dungeon', 'combat'])
-        .orderBy('createdAt', 'desc')
-        .limit(20)
-        .get()
-        .then((snapshot) => {
-            const games = [];
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                data.id = doc.id;
-                games.push(data);
-            });
-            return games;
-        });
-}
-
-// ----- ЭКСПОРТ -----
-export default {
-    signInAnonymously,
-    getCurrentUser,
-    createGame,
-    joinGame,
-    setPlayerReady,
-    updateGameState,
-    subscribeToGame,
-    unsubscribeFromGame,
-    sendChatMessage,
-    sendPing,
-    updatePlayerPosition,
-    deleteGame,
-    getActiveGames
-};
+console.log('🔥 Firebase инициализирован. Режим:', navigator.onLine ? 'онлайн' : 'офлайн');
