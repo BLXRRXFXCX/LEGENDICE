@@ -145,12 +145,10 @@ function updateMinimap(gameData, myPlayerId) {
     
     container.innerHTML = html;
     
-    // Клик по комнате
     container.querySelectorAll('.minimap-room').forEach(el => {
         el.addEventListener('click', () => {
             const roomId = el.dataset.room;
             if (roomId && gameData.turn?.phase === 'idle') {
-                // Перемещение в комнату
                 window.selectRoom?.(roomId);
             }
         });
@@ -175,7 +173,6 @@ function updateRoomView(gameData, myPlayerId, isMyTurn) {
     
     currentRoomId = myPos;
     
-    // Заголовок
     let title = '🏚️ Комната';
     let bgColor = '';
     if (room.type === 'combat') { title = '💀 Бой!'; bgColor = 'rgba(220,53,69,0.1)'; }
@@ -184,7 +181,6 @@ function updateRoomView(gameData, myPlayerId, isMyTurn) {
     else if (room.type === 'shop') { title = '🏪 Торговец'; bgColor = 'rgba(23,162,184,0.1)'; }
     else if (room.type === 'boss') { title = '👑 БОСС!'; bgColor = 'rgba(255,0,0,0.2)'; }
     
-    // Враги
     let enemiesHtml = '';
     if (room.enemies && room.enemies.length > 0) {
         enemiesHtml = `<div class="enemy-list">`;
@@ -208,7 +204,6 @@ function updateRoomView(gameData, myPlayerId, isMyTurn) {
         enemiesHtml = `<div style="color:#4caf50;">✅ Все враги повержены!</div>`;
     }
     
-    // Сундуки
     let chestsHtml = '';
     if (room.chests && room.chests.length > 0) {
         chestsHtml = `<div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; justify-content:center;">`;
@@ -226,7 +221,6 @@ function updateRoomView(gameData, myPlayerId, isMyTurn) {
         chestsHtml += `</div>`;
     }
     
-    // Магазин
     let shopHtml = '';
     if (room.type === 'shop' && room.shopItems && room.shopItems.length > 0) {
         shopHtml = `<div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; justify-content:center;">`;
@@ -242,7 +236,6 @@ function updateRoomView(gameData, myPlayerId, isMyTurn) {
         shopHtml += `</div>`;
     }
     
-    // Кнопки для комнаты отдыха
     let restHtml = '';
     if (room.type === 'rest' && !room.isCleared) {
         restHtml = `
@@ -264,7 +257,6 @@ function updateRoomView(gameData, myPlayerId, isMyTurn) {
         </div>
     `;
     
-    // Обработчики кликов
     container.querySelectorAll('.enemy-card.targetable').forEach(el => {
         el.addEventListener('click', () => {
             const index = parseInt(el.dataset.enemyIndex);
@@ -431,7 +423,7 @@ export function showDiceModal(diceValues, comboName, comboEffect) {
     
     container.style.display = 'flex';
     result.style.display = 'block';
-    closeBtn.style.display = 'block';
+    if (closeBtn) closeBtn.style.display = 'block';
     
     let html = `<div class="dice-values">${diceValues.map(v => `[${v}]`).join(' ')}</div>`;
     
@@ -440,7 +432,6 @@ export function showDiceModal(diceValues, comboName, comboEffect) {
             <div class="dice-combo">🔥 ${comboName}</div>
             <div class="dice-combo-effect">${comboEffect || ''}</div>
         `;
-        // Закрываем через 3 секунды
         setTimeout(() => {
             window.closeDiceModal?.();
         }, 3000);
@@ -480,7 +471,6 @@ export function showDiceModal(diceValues, comboName, comboEffect) {
     result.innerHTML = html;
     result.style.display = 'block';
     
-    // Обработчики для распределения кубиков
     if (!comboName) {
         result.querySelectorAll('[data-dice-index]').forEach(btn => {
             btn.addEventListener('click', function() {
@@ -490,7 +480,6 @@ export function showDiceModal(diceValues, comboName, comboEffect) {
                 if (current === 'none') window.diceSelections[index] = 'attack';
                 else if (current === 'attack') window.diceSelections[index] = 'defense';
                 else window.diceSelections[index] = 'none';
-                // Перерисовываем
                 const values = window.currentDiceValues || [];
                 showDiceModal(values, null, null);
             });
@@ -511,8 +500,7 @@ export function showDiceModal(diceValues, comboName, comboEffect) {
             });
         }
     }
-
-
+}
 
 // ----- ЭКСПОРТ -----
 export default {
