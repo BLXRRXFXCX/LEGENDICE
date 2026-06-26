@@ -241,22 +241,30 @@ async function initializeGame(gameId) {
         const dungeon = generateDungeon(totalFloors);
         const firstRoom = Object.keys(dungeon.rooms)[0];
         
-        // Обновляем позиции игроков
-        const updates = {
-            dungeon: dungeon,
-            status: 'dungeon',
-            turn: {
-                currentPlayer: 'player1',
-                phase: 'idle',
-                order: ['player1', 'player2'],
-                index: 0,
-                diceValues: [],
-                selectedAttack: [],
-                selectedDefense: [],
-                targetAttack: null,
-                targetDefense: null,
-                combo: null
-            }
+      const updates = {
+    dungeon: dungeon,
+    status: 'dungeon',
+    turn: {
+        currentPlayer: 'player1',
+        phase: 'idle',
+        order: ['player1', 'player2'],
+        index: 0,
+        diceValues: [],
+        selectedAttack: [],
+        selectedDefense: [],
+        targetAttack: null,
+        targetDefense: null,
+        combo: null
+    }
+};
+
+// Обновляем позиции отдельно
+if (data.players.player1) {
+    updates['players.player1.position'] = firstRoom;
+}
+if (data.players.player2) {
+    updates['players.player2.position'] = firstRoom;
+}
         };
         
         // Обновляем позиции
@@ -377,7 +385,10 @@ function checkAndStartCombat(data, myPlayerId) {
     const hasAlive = room.enemies?.some(e => e.isAlive);
     if (!hasAlive) {
         room.isCleared = true;
-        updateGameState(currentGameId, { dungeon: data.dungeon });
+       updateGameState(currentGameId, { 
+    dungeon: data.dungeon,
+    turn: data.turn 
+});
         return;
     }
     
@@ -585,11 +596,10 @@ function applyCombo(playerId, combo) {
     if (room) updateRoomAfterCombat(room);
     
     // Синхронизируем с Firebase
-    updateGameState(currentGameId, {
-        players: gameState.players,
-        dungeon: gameState.dungeon,
-        logs: gameState.logs
-    });
+  updateGameState(currentGameId, {
+    players: gameState.players,
+    dungeon: gameState.dungeon
+});
 }
 
 // ----- ПОДТВЕРЖДЕНИЕ РАСПРЕДЕЛЕНИЯ КУБИКОВ -----
@@ -631,12 +641,11 @@ window.confirmDiceDistribution = function(attackSum, defenseSum, selections) {
     updateRoomAfterCombat(room);
     
     // Синхронизируем
-    updateGameState(currentGameId, {
-        players: gameState.players,
-        dungeon: gameState.dungeon,
-        turn: gameState.turn,
-        logs: gameState.logs
-    });
+  updateGameState(currentGameId, {
+    players: gameState.players,
+    dungeon: gameState.dungeon,
+    turn: gameState.turn
+});
     
     // Переход хода
     nextTurn();
