@@ -150,10 +150,27 @@ export function joinGame(gameId, playerName, playerClass) {
         });
 }
 
+// ----- ОБНОВИТЬ СОСТОЯНИЕ ИГРЫ -----
 export function updateGameState(gameId, data) {
     const gameRef = db.collection('games').doc(gameId);
-    data.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-    return gameRef.update(data);
+    
+    // Очищаем данные от undefined и null
+    const cleanData = {};
+    for (const [key, value] of Object.entries(data)) {
+        if (value !== undefined && value !== null) {
+            cleanData[key] = value;
+        }
+    }
+    
+    // Добавляем timestamp
+    cleanData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+    
+    return gameRef.update(cleanData)
+        .catch((error) => {
+            console.error('❌ Ошибка обновления игры:', error);
+            console.error('📦 Данные, которые пытались сохранить:', cleanData);
+            throw error;
+        });
 }
 
 export function subscribeToGame(gameId, callback) {
