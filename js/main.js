@@ -45,6 +45,12 @@ let diceSelections = {};
 let selectedEnemyIndex = null;
 let selectedAllyId = null;
 
+
+// ----- ГЛОБАЛЬНЫЕ ОБЪЕКТЫ ДЛЯ UI -----
+window.currentDiceValues = [];
+window.diceSelections = {};
+
+
 // ============================================================
 // 1. ИНИЦИАЛИЗАЦИЯ
 // ============================================================
@@ -271,6 +277,11 @@ function handleGameUpdate(data) {
         return;
     }
     
+    // Инициализируем logs, если их нет
+    if (!data.logs) data.logs = [];
+    if (!data.chat) data.chat = [];
+    if (!data.pings) data.pings = [];
+    
     gameState = data;
     
     const user = getCurrentUser();
@@ -290,12 +301,12 @@ function handleGameUpdate(data) {
         alert('🎉 Подземелье пройдено!');
     }
     
+    // Обновляем UI
     updateUI(data, myPlayerId, isMyTurn);
     
-    // Проверяем, нужно ли начать бой
+    // Проверяем, нужно ли начать бой (с защитой от бесконечного цикла)
     checkAndStartCombat(data, myPlayerId);
 }
-
 // ============================================================
 // 5. НАСТРОЙКА UI
 // ============================================================
