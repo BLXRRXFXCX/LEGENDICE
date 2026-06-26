@@ -255,6 +255,5 @@ export {
     sendChatMessage,
     sendPing,
     setPlayerReady,
-    updatePlayerPosition,
-    deleteGame
+    updatePlayerPosition
 };
