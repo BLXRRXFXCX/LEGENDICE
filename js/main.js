@@ -457,10 +457,17 @@ function checkCombo(className, diceValues) {
 // ----- ПРИМЕНЕНИЕ КОМБИНАЦИИ -----
 function applyCombo(playerId, combo) {
     const player = gameState.players[playerId];
-    if (!player) return;
+    if (!player) {
+        console.warn('⚠️ Игрок не найден');
+        return;
+    }
     
     console.log(`🔥 Применяем: ${combo.name}`);
     const room = getRoom(gameState.dungeon, player.position);
+    if (!room) {
+        console.warn('⚠️ Комната не найдена');
+        return;
+    }
     
     switch (combo.effect) {
         case 'heal_all':
@@ -564,7 +571,7 @@ function applyCombo(playerId, combo) {
     // Проверяем, зачищена ли комната
     if (room) updateRoomAfterCombat(room);
     
-    // Синхронизируем
+    // Синхронизируем с Firebase
     updateGameState(currentGameId, {
         players: gameState.players,
         dungeon: gameState.dungeon,
