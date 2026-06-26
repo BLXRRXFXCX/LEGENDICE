@@ -41,6 +41,18 @@ export function getCurrentUser() {
     return currentUser || auth.currentUser;
 }
 
+// ----- ПОЛУЧИТЬ ДАННЫЕ ИГРЫ -----
+export function getGameData(gameId) {
+    return db.collection('games').doc(gameId).get()
+        .then((doc) => {
+            if (doc.exists) {
+                return { id: doc.id, ...doc.data() };
+            } else {
+                throw new Error('Игра не найдена');
+            }
+        });
+}
+
 // ----- СОЗДАТЬ ИГРУ -----
 export function createGame(playerName, playerClass) {
     if (!getCurrentUser()) {
@@ -69,6 +81,11 @@ export function createGame(playerName, playerClass) {
             player3: null,
             player4: null
         },
+        dungeon: null,
+        turn: null,
+        chat: [],
+        pings: [],
+        logs: [],
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
@@ -202,6 +219,24 @@ export function setPlayerReady(gameId, playerId, isReady) {
     updateData[`players.${playerId}.isReady`] = isReady;
     updateData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
     return gameRef.update(updateData);
+}
+
+// ----- ОБНОВИТЬ ПОЗИЦИЮ ИГРОКА -----
+export function updatePlayerPosition(gameId, playerId, roomId) {
+    const gameRef = db.collection('games').doc(gameId);
+    const updateData = {};
+    updateData[`players.${playerId}.position`] = roomId;
+    updateData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+    return gameRef.update(updateData);
+}
+
+// ----- УДАЛИТЬ ИГРУ -----
+export function deleteGame(gameId) {
+    return db.collection('games').doc(gameId).delete()
+        .then(() => {
+            console.log('🗑️ Игра удалена');
+            currentGameId = null;
+        });
 }
 
 console.log('🔥 Firebase инициализирован. Режим:', navigator.onLine ? 'онлайн' : 'офлайн');
