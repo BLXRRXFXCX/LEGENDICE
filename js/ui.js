@@ -4,16 +4,14 @@
 // ============================================================
 
 import { CLASSES, SLOT_TYPES, RARITY, ENEMIES, BOSS, COMBOS, COMBO_EMOJI } from './constants.js';
+import { getRoom, isRoomCleared } from './game.js';
 
-// ----- СОСТОЯНИЕ UI -----
 let currentRoomId = null;
 let selectedEnemy = null;
 let selectedAlly = null;
-let isDiceModalOpen = false;
 
 // ----- ИНИЦИАЛИЗАЦИЯ UI -----
 export function initUI() {
-    // Ничего особенного не требуется, всё уже в HTML
     console.log('🎨 UI инициализирован');
 }
 
@@ -38,33 +36,34 @@ export function updateUI(gameData, myPlayerId, isMyTurn) {
     updateRoomView(gameData, myPlayerId, isMyTurn);
     updateSlots(gameData, myPlayerId);
     updateChat(gameData);
-    updatePings(gameData);
     updateTurnIndicator(gameData, myPlayerId, isMyTurn);
 }
 
 // ----- ВЕРХНЯЯ ПАНЕЛЬ -----
 function updateTopBar(gameData, myPlayerId, isMyTurn) {
-    const p1 = gameData.players.player1;
-    const p2 = gameData.players.player2;
+    const p1 = gameData.players?.player1;
+    const p2 = gameData.players?.player2;
     
     const p1Info = document.getElementById('player1-info');
     const p2Info = document.getElementById('player2-info');
     
     if (p1) {
         const classEmoji = CLASSES[p1.class]?.emoji || '👤';
-        p1Info.innerHTML = `${classEmoji} ${p1.name || 'Игрок 1'}: ❤️ ${p1.hp || 0}/${p1.maxHp || 0}`;
+        const hpText = p1.isShadow ? '💀 Тень' : `❤️ ${p1.hp || 0}/${p1.maxHp || 0}`;
+        p1Info.innerHTML = `${classEmoji} ${p1.name || 'Игрок 1'}: ${hpText}`;
         p1Info.className = 'player-info' + (p1.isShadow ? ' shadow' : '');
-        p1Info.style.borderColor = myPlayerId === 'player1' ? '#f0c040' : '#2a2f45';
+        p1Info.style.borderColor = myPlayerId === 'player1' ? '#f0c040' : 'transparent';
     }
     
     if (p2) {
         const classEmoji = CLASSES[p2.class]?.emoji || '👤';
-        p2Info.innerHTML = `${classEmoji} ${p2.name || 'Игрок 2'}: ❤️ ${p2.hp || 0}/${p2.maxHp || 0}`;
+        const hpText = p2.isShadow ? '💀 Тень' : `❤️ ${p2.hp || 0}/${p2.maxHp || 0}`;
+        p2Info.innerHTML = `${classEmoji} ${p2.name || 'Игрок 2'}: ${hpText}`;
         p2Info.className = 'player-info' + (p2.isShadow ? ' shadow' : '');
-        p2Info.style.borderColor = myPlayerId === 'player2' ? '#f0c040' : '#2a2f45';
+        p2Info.style.borderColor = myPlayerId === 'player2' ? '#f0c040' : 'transparent';
     } else {
         p2Info.innerHTML = '👤 Ожидание игрока...';
-        p2Info.style.borderColor = '#2a2f45';
+        p2Info.style.borderColor = 'transparent';
     }
 }
 
@@ -74,21 +73,26 @@ function updateTurnIndicator(gameData, myPlayerId, isMyTurn) {
     const current = gameData.turn?.currentPlayer;
     
     if (!current) {
-        indicator.textContent = '⏳ Ожидание...';
+        indicator.textContent = '⏳ Ожидание начала...';
         return;
     }
     
-    let playerName = '';
-    if (current === 'player1' && gameData.players.player1) {
-        playerName = gameData.players.player1.name || 'Игрок 1';
-    } else if (current === 'player2' && gameData.players.player2) {
-        playerName = gameData.players.player2.name || 'Игрок 2';
-    } else {
-        playerName = current;
-    }
+    let playerName = current;
+    const p1 = gameData.players?.player1;
+    const p2 = gameData.players?.player2;
+    if (current === 'player1' && p1) playerName = p1.name || 'Игрок 1';
+    else if (current === 'player2' && p2) playerName = p2.name || 'Игрок 2';
     
-    const isMyTurnText = isMyTurn ? '🔥 ВАШ ХОД!' : '⏳ Ожидание...';
-    indicator.textContent = `🎯 ${playerName} (${isMyTurnText})`;
+    const phase = gameData.turn?.phase || 'idle';
+    let phaseText = '';
+    if (phase === 'roll') phaseText = '🎲 Бросок...';
+    else if (phase === 'distribute') phaseText = '✋ Распределение';
+    else if (phase === 'select_target') phaseText = '🎯 Выбор цели';
+    else if (phase === 'apply') phaseText = '⚡ Применение';
+    else if (phase === 'idle') phaseText = '⏳ Ожидание';
+    
+    const isMyTurnText = isMyTurn ? '🔥 ВАШ ХОД!' : '⏳ Ход соперника';
+    indicator.textContent = `🎯 ${playerName} ${phaseText} (${isMyTurnText})`;
     indicator.style.color = isMyTurn ? '#ffd700' : '#888';
 }
 
@@ -98,11 +102,11 @@ function updateMinimap(gameData, myPlayerId) {
     const dungeon = gameData.dungeon;
     
     if (!dungeon || !dungeon.rooms) {
-        container.innerHTML = '<div style="color:#666; padding:10px;">Карта не загружена</div>';
+        container.innerHTML = '<div style="color:#666; font-size:12px; padding:10px;">🗺️ Карта не загружена</div>';
         return;
     }
     
-    const myPos = gameData.players[myPlayerId]?.position || 'room_1';
+    const myPos = gameData.players?.[myPlayerId]?.position || Object.keys(dungeon.rooms)[0];
     const rooms = dungeon.rooms;
     const roomIds = Object.keys(rooms);
     
@@ -112,7 +116,6 @@ function updateMinimap(gameData, myPlayerId) {
         const isCurrent = roomId === myPos;
         const isCleared = room.isCleared || false;
         
-        // Определяем иконку комнаты
         let icon = '🏚️';
         if (room.type === 'combat') icon = '💀';
         else if (room.type === 'chest') icon = '💎';
@@ -120,22 +123,20 @@ function updateMinimap(gameData, myPlayerId) {
         else if (room.type === 'shop') icon = '🏪';
         else if (room.type === 'boss') icon = '👑';
         
-        // Игроки в комнате
         const playersInRoom = room.players || [];
         const playerIcons = playersInRoom.map(pId => {
-            const p = gameData.players[pId];
+            const p = gameData.players?.[pId];
             if (!p) return '';
             return CLASSES[p.class]?.emoji || '👤';
         }).join('');
         
-        // Классы для стилизации
         let cls = 'minimap-room';
         if (room.type) cls += ` ${room.type}`;
         if (isCurrent) cls += ' current';
         if (isCleared) cls += ' cleared';
         
         html += `
-            <div class="${cls}" data-room="${roomId}" style="position:relative;">
+            <div class="${cls}" data-room="${roomId}" title="${roomId} (${room.type})">
                 ${icon}
                 <div class="room-players">${playerIcons || ' '}</div>
             </div>
@@ -144,13 +145,13 @@ function updateMinimap(gameData, myPlayerId) {
     
     container.innerHTML = html;
     
-    // Клик по комнате для перемещения (если это безопасно)
+    // Клик по комнате
     container.querySelectorAll('.minimap-room').forEach(el => {
         el.addEventListener('click', () => {
             const roomId = el.dataset.room;
-            if (roomId && gameData.turn?.phase !== 'combat') {
-                // TODO: Перемещение в комнату (только если она доступна)
-                console.log('📦 Перемещение в комнату:', roomId);
+            if (roomId && gameData.turn?.phase === 'idle') {
+                // Перемещение в комнату
+                window.selectRoom?.(roomId);
             }
         });
     });
@@ -159,31 +160,37 @@ function updateMinimap(gameData, myPlayerId) {
 // ----- ОТОБРАЖЕНИЕ ТЕКУЩЕЙ КОМНАТЫ -----
 function updateRoomView(gameData, myPlayerId, isMyTurn) {
     const container = document.getElementById('room-view');
-    const myPos = gameData.players[myPlayerId]?.position || 'room_1';
-    const room = gameData.dungeon?.rooms?.[myPos];
+    const myPos = gameData.players?.[myPlayerId]?.position;
     
+    if (!myPos) {
+        container.innerHTML = '<div style="color:#666; text-align:center; padding:40px;">🏚️ Выберите комнату на карте</div>';
+        return;
+    }
+    
+    const room = getRoom(gameData.dungeon, myPos);
     if (!room) {
-        container.innerHTML = '<div style="color:#666;">Комната не загружена</div>';
+        container.innerHTML = '<div style="color:#666; text-align:center; padding:40px;">❌ Комната не найдена</div>';
         return;
     }
     
     currentRoomId = myPos;
     
-    // Заголовок комнаты
+    // Заголовок
     let title = '🏚️ Комната';
-    if (room.type === 'combat') title = '💀 Бой!';
-    else if (room.type === 'chest') title = '💎 Сундук';
-    else if (room.type === 'rest') title = '🏥 Отдых';
-    else if (room.type === 'shop') title = '🏪 Торговец';
-    else if (room.type === 'boss') title = '👑 БОСС!';
+    let bgColor = '';
+    if (room.type === 'combat') { title = '💀 Бой!'; bgColor = 'rgba(220,53,69,0.1)'; }
+    else if (room.type === 'chest') { title = '💎 Сундук'; bgColor = 'rgba(255,193,7,0.1)'; }
+    else if (room.type === 'rest') { title = '🏥 Отдых'; bgColor = 'rgba(40,167,69,0.1)'; }
+    else if (room.type === 'shop') { title = '🏪 Торговец'; bgColor = 'rgba(23,162,184,0.1)'; }
+    else if (room.type === 'boss') { title = '👑 БОСС!'; bgColor = 'rgba(255,0,0,0.2)'; }
     
-    // Враги (если есть)
+    // Враги
     let enemiesHtml = '';
     if (room.enemies && room.enemies.length > 0) {
         enemiesHtml = `<div class="enemy-list">`;
         room.enemies.forEach((enemy, index) => {
             const isDead = !enemy.isAlive;
-            const isTargetable = isMyTurn && enemy.isAlive && !isDead;
+            const isTargetable = isMyTurn && enemy.isAlive && !isDead && room.type !== 'rest' && room.type !== 'shop';
             
             enemiesHtml += `
                 <div class="enemy-card ${isDead ? 'enemy-dead' : ''} ${isTargetable ? 'targetable' : ''}" 
@@ -191,72 +198,115 @@ function updateRoomView(gameData, myPlayerId, isMyTurn) {
                     <div class="enemy-emoji">${enemy.emoji || '👾'}</div>
                     <div class="enemy-name">${enemy.name || 'Враг'}</div>
                     <div class="enemy-hp">❤️ ${enemy.hp || 0}/${enemy.maxHp || 0}</div>
-                    ${enemy.poison ? `<div style="color:#7cfc00;font-size:12px;">☠️ Отравлен</div>` : ''}
-                    ${enemy.freeze ? `<div style="color:#00bfff;font-size:12px;">❄️ Заморожен</div>` : ''}
+                    ${enemy.poison ? `<div style="color:#7cfc00;font-size:11px;">☠️ Отравлен</div>` : ''}
+                    ${enemy.freeze ? `<div style="color:#00bfff;font-size:11px;">❄️ Заморожен</div>` : ''}
                 </div>
             `;
         });
         enemiesHtml += `</div>`;
-    } else {
-        enemiesHtml = `<div style="color:#666;">Комната пуста</div>`;
+    } else if (room.type === 'combat' || room.type === 'boss') {
+        enemiesHtml = `<div style="color:#4caf50;">✅ Все враги повержены!</div>`;
     }
     
-    // Сундуки (если есть)
+    // Сундуки
     let chestsHtml = '';
     if (room.chests && room.chests.length > 0) {
-        chestsHtml = `<div style="display:flex; gap:10px; margin-top:10px;">`;
+        chestsHtml = `<div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; justify-content:center;">`;
         room.chests.forEach((chest, index) => {
+            const isOpened = chest.isOpened || false;
+            const rarityInfo = RARITY[chest.rarity] || { color: '#888' };
             chestsHtml += `
-                <div class="enemy-card" style="min-width:60px; cursor:pointer;" data-chest-index="${index}">
-                    <div style="font-size:36px;">📦</div>
-                    <div style="font-size:12px;color:#ffd700;">Сундук</div>
-                    ${chest.isOpened ? '<div style="color:#888;font-size:10px;">✅ Открыт</div>' : ''}
+                <div class="enemy-card" data-chest-index="${index}" style="min-width:60px; cursor:${isOpened ? 'default' : 'pointer'}; border-color:${isOpened ? '#2a2f45' : rarityInfo.color};">
+                    <div style="font-size:32px;">${isOpened ? '📭' : '📦'}</div>
+                    <div style="font-size:11px;color:${rarityInfo.color};">${RARITY[chest.rarity]?.label || ''}</div>
+                    ${isOpened ? '<div style="color:#888;font-size:10px;">✅ Открыт</div>' : ''}
                 </div>
             `;
         });
         chestsHtml += `</div>`;
     }
     
+    // Магазин
+    let shopHtml = '';
+    if (room.type === 'shop' && room.shopItems && room.shopItems.length > 0) {
+        shopHtml = `<div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; justify-content:center;">`;
+        room.shopItems.forEach((item, index) => {
+            shopHtml += `
+                <div class="enemy-card" data-shop-index="${index}" style="cursor:pointer; min-width:70px; border-color:#17a2b8;">
+                    <div style="font-size:28px;">${item.emoji || '📦'}</div>
+                    <div style="font-size:12px;color:#ddd;">${item.name}</div>
+                    <div style="font-size:12px;color:#ffd700;">💰 ${item.price}</div>
+                </div>
+            `;
+        });
+        shopHtml += `</div>`;
+    }
+    
+    // Кнопки для комнаты отдыха
+    let restHtml = '';
+    if (room.type === 'rest' && !room.isCleared) {
+        restHtml = `
+            <button class="btn-success" id="btn-rest-heal" style="padding:12px 30px; border-radius:10px; border:none; font-weight:bold; cursor:pointer;">
+                🏥 Отдохнуть (+50% HP)
+            </button>
+        `;
+    }
+    
     container.innerHTML = `
-        <div class="room-title">${title}</div>
+        <div class="room-title" style="background:${bgColor}; padding:8px 20px; border-radius:10px; width:100%; text-align:center;">${title}</div>
         ${enemiesHtml}
         ${chestsHtml}
-        <div style="color:#666; font-size:12px; margin-top:10px;">
+        ${shopHtml}
+        ${restHtml}
+        <div style="color:#666; font-size:12px; margin-top:8px;">
             ${room.isCleared ? '✅ Комната зачищена' : ''}
+            ${room.type === 'rest' && room.isCleared ? '✅ Отдых завершён' : ''}
         </div>
     `;
     
-    // Обработчики кликов по врагам (для выбора цели)
+    // Обработчики кликов
     container.querySelectorAll('.enemy-card.targetable').forEach(el => {
         el.addEventListener('click', () => {
             const index = parseInt(el.dataset.enemyIndex);
             if (!isNaN(index) && isMyTurn) {
-                console.log('🎯 Выбран враг:', index);
-                // TODO: Передать выбор цели в game.js
-                // window.selectEnemyTarget(index);
+                window.selectEnemyTarget?.(index);
             }
         });
     });
     
-    // Обработчики кликов по сундукам
     container.querySelectorAll('[data-chest-index]').forEach(el => {
         el.addEventListener('click', () => {
             const index = parseInt(el.dataset.chestIndex);
-            if (!isNaN(index)) {
-                console.log('📦 Открыт сундук:', index);
-                // TODO: Открыть сундук
+            if (!isNaN(index) && room.chests && !room.chests[index]?.isOpened) {
+                window.openChestAction?.(index);
             }
         });
     });
+    
+    container.querySelectorAll('[data-shop-index]').forEach(el => {
+        el.addEventListener('click', () => {
+            const index = parseInt(el.dataset.shopIndex);
+            if (!isNaN(index) && room.shopItems) {
+                window.buyShopAction?.(index);
+            }
+        });
+    });
+    
+    const restBtn = document.getElementById('btn-rest-heal');
+    if (restBtn) {
+        restBtn.addEventListener('click', () => {
+            window.restHealAction?.();
+        });
+    }
 }
 
-// ----- СЛОТЫ (ЭКИПИРОВКА) -----
+// ----- СЛОТЫ -----
 function updateSlots(gameData, myPlayerId) {
     const container = document.getElementById('slots-bar');
-    const player = gameData.players[myPlayerId];
+    const player = gameData.players?.[myPlayerId];
     
     if (!player) {
-        container.innerHTML = '<span style="color:#666;">Нет данных</span>';
+        container.innerHTML = '<span style="color:#666; font-size:12px;">Нет данных</span>';
         return;
     }
     
@@ -287,7 +337,6 @@ function updateSlots(gameData, myPlayerId) {
     
     container.innerHTML = html;
     
-    // Клик по слоту для информации
     container.querySelectorAll('.slot-item').forEach(el => {
         el.addEventListener('click', () => {
             const slotKey = el.dataset.slot;
@@ -299,14 +348,14 @@ function updateSlots(gameData, myPlayerId) {
     });
 }
 
-// ----- ИНФОРМАЦИЯ О ПРЕДМЕТЕ (модалка) -----
+// ----- ИНФОРМАЦИЯ О ПРЕДМЕТЕ -----
 function showItemInfo(item) {
     const rarityInfo = RARITY[item.rarity] || { label: 'Обычный', color: '#888' };
     const overlay = document.getElementById('modal-overlay');
     const content = document.getElementById('modal-content');
     
     content.innerHTML = `
-        <button class="modal-close" onclick="closeModal()">✕</button>
+        <button class="modal-close" onclick="window.closeModal()">✕</button>
         <div class="modal-title">
             ${item.emoji || '📦'} ${item.name || 'Предмет'}
         </div>
@@ -323,7 +372,7 @@ function showItemInfo(item) {
                     ${item.effects.map(e => `<div style="color:#88ccff; font-size:13px;">✨ ${e}</div>`).join('')}
                 </div>
             ` : ''}
-            <button class="btn-secondary" onclick="closeModal()" style="margin-top:10px;">Закрыть</button>
+            <button class="btn-secondary" onclick="window.closeModal()" style="margin-top:10px;">Закрыть</button>
         </div>
     `;
     
@@ -336,16 +385,15 @@ function updateChat(gameData) {
     const messages = gameData.chat || [];
     
     if (messages.length === 0) {
-        container.innerHTML = '<div style="color:#666; font-size:12px; text-align:center;">Нет сообщений</div>';
+        container.innerHTML = '<div style="color:#666; font-size:12px; text-align:center;">💬 Нет сообщений</div>';
         return;
     }
     
-    // Показываем последние 20 сообщений
-    const lastMessages = messages.slice(-20);
+    const lastMessages = messages.slice(-15);
     let html = '';
     lastMessages.forEach(msg => {
         const playerId = msg.player;
-        const playerData = gameData.players[playerId];
+        const playerData = gameData.players?.[playerId];
         const playerName = playerData?.name || playerId || 'Неизвестный';
         const classEmoji = playerData ? CLASSES[playerData.class]?.emoji : '👤';
         
@@ -361,18 +409,6 @@ function updateChat(gameData) {
     container.scrollTop = container.scrollHeight;
 }
 
-// ----- ПИНГИ (НА КАРТЕ) -----
-function updatePings(gameData) {
-    // Пинги отображаются на мини-карте как мигающие метки
-    const pings = gameData.pings || [];
-    // TODO: Отображать пинги на мини-карте
-    // Пока просто логируем
-    if (pings.length > 0) {
-        const lastPing = pings[pings.length - 1];
-        console.log(`📍 Пинг от ${lastPing.player}: ${lastPing.emoji} в ${lastPing.roomId}`);
-    }
-}
-
 // ----- МОДАЛЬНЫЕ ОКНА -----
 export function openModal(html) {
     const overlay = document.getElementById('modal-overlay');
@@ -385,15 +421,17 @@ export function closeModal() {
     document.getElementById('modal-overlay').style.display = 'none';
 }
 
-// Глобальные функции для модалок
 window.closeModal = closeModal;
 
-// ----- БРОСОК КУБИКОВ (вызов из main) -----
+// ----- ПОКАЗАТЬ МОДАЛКУ С КУБИКАМИ -----
 export function showDiceModal(diceValues, comboName, comboEffect) {
     const container = document.getElementById('dice-container');
     const result = document.getElementById('dice-result');
+    const closeBtn = document.getElementById('dice-close-btn');
     
     container.style.display = 'flex';
+    result.style.display = 'block';
+    closeBtn.style.display = 'block';
     
     let html = `<div class="dice-values">${diceValues.map(v => `[${v}]`).join(' ')}</div>`;
     
@@ -402,41 +440,87 @@ export function showDiceModal(diceValues, comboName, comboEffect) {
             <div class="dice-combo">🔥 ${comboName}</div>
             <div class="dice-combo-effect">${comboEffect || ''}</div>
         `;
-        // После комбинации автоматически закрываем через 3 секунды
+        // Закрываем через 3 секунды
         setTimeout(() => {
-            closeDiceModal();
+            window.closeDiceModal?.();
         }, 3000);
     } else {
-        // Без комбинации — показываем кнопки распределения
+        let attackSum = 0;
+        let defenseSum = 0;
+        const diceStatus = diceValues.map((v, i) => {
+            const status = window.diceSelections?.[i] || 'none';
+            if (status === 'attack') attackSum += v;
+            else if (status === 'defense') defenseSum += v;
+            return status;
+        });
+        
         html += `
-            <div style="margin-top:15px; color:#888; font-size:14px;">Распределите кубики:</div>
+            <div style="margin-top:12px; color:#888; font-size:14px;">Распределите кубики (кликните для переключения):</div>
             <div class="dice-actions">
                 ${diceValues.map((v, i) => `
-                    <button class="btn-attack" data-dice-index="${i}" data-value="${v}" style="font-size:18px; padding:8px 16px;">
-                        [${v}] ⚔️
+                    <button class="${diceStatus[i] === 'attack' ? 'btn-attack' : diceStatus[i] === 'defense' ? 'btn-defense' : 'btn-secondary'}" 
+                            data-dice-index="${i}" data-value="${v}" 
+                            style="font-size:18px; padding:8px 16px; border-radius:8px; border:none; font-weight:bold; cursor:pointer;">
+                        ${v} ${diceStatus[i] === 'attack' ? '⚔️' : diceStatus[i] === 'defense' ? '🛡️' : '⬜'}
                     </button>
                 `).join('')}
             </div>
-            <div style="margin-top:10px;">
-                <span id="dice-attack-sum">Атака: 0</span> | 
-                <span id="dice-defense-sum">Защита: 0</span>
+            <div class="dice-stats">
+                <span class="stat-attack">⚔️ Атака: ${attackSum}</span>
+                <span class="stat-defense">🛡️ Защита: ${defenseSum}</span>
             </div>
-            <button class="btn-confirm" id="dice-confirm" style="margin-top:15px; padding:10px 30px;" disabled>
-                ✅ Подтвердить
-            </button>
+            <div style="margin-top:10px;">
+                <button class="btn-confirm" id="dice-confirm" style="padding:10px 30px; border-radius:8px; border:none; font-weight:bold; cursor:pointer;">
+                    ✅ Подтвердить
+                </button>
+            </div>
         `;
-        
-        // TODO: Логика распределения кубиков
     }
     
     result.innerHTML = html;
     result.style.display = 'block';
+    
+    // Обработчики для распределения кубиков
+    if (!comboName) {
+        result.querySelectorAll('[data-dice-index]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const index = parseInt(this.dataset.index) || parseInt(this.dataset.diceIndex);
+                if (!window.diceSelections) window.diceSelections = {};
+                const current = window.diceSelections[index] || 'none';
+                if (current === 'none') window.diceSelections[index] = 'attack';
+                else if (current === 'attack') window.diceSelections[index] = 'defense';
+                else window.diceSelections[index] = 'none';
+                // Перерисовываем
+                const values = window.currentDiceValues || [];
+                showDiceModal(values, null, null);
+            });
+        });
+        
+        const confirmBtn = result.querySelector('#dice-confirm');
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', () => {
+                const selections = window.diceSelections || {};
+                const values = window.currentDiceValues || [];
+                let attackSum = 0, defenseSum = 0;
+                values.forEach((v, i) => {
+                    if (selections[i] === 'attack') attackSum += v;
+                    else if (selections[i] === 'defense') defenseSum += v;
+                });
+                window.confirmDiceDistribution?.(attackSum, defenseSum, selections);
+                window.closeDiceModal?.();
+            });
+        }
+    }
 }
 
 export function closeDiceModal() {
     document.getElementById('dice-container').style.display = 'none';
     document.getElementById('dice-result').style.display = 'none';
+    document.getElementById('dice-close-btn').style.display = 'none';
+    window.diceSelections = {};
 }
+
+window.closeDiceModal = closeDiceModal;
 
 // ----- ЭКСПОРТ -----
 export default {
