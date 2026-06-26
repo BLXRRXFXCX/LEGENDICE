@@ -341,7 +341,7 @@ function updateSlots(gameData, myPlayerId) {
 }
 
 // ----- ИНФОРМАЦИЯ О ПРЕДМЕТЕ -----
-function showItemInfo(item) {
+export function showItemInfo(item) {
     const rarityInfo = RARITY[item.rarity] || { label: 'Обычный', color: '#888' };
     const overlay = document.getElementById('modal-overlay');
     const content = document.getElementById('modal-content');
