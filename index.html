@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LEGENDICE</title>
+    <link rel="stylesheet" href="css/style.css">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    
+    <!-- Three.js для 3D кубиков -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+    <!-- Главный контейнер -->
+    <div id="app">
+        <!-- Экран загрузки -->
+        <div id="loading-screen">
+            <div class="loader"></div>
+            <h1>🎲 LEGENDICE</h1>
+            <p>Загрузка...</p>
+        </div>
+
+        <!-- Экран лобби -->
+        <div id="lobby-screen" style="display:none;">
+            <div class="lobby-container">
+                <h1>🎲 LEGENDICE</h1>
+                <div id="lobby-content">
+                    <!-- Содержимое лобби будет отрисовано через JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Экран игры (подземелье) -->
+        <div id="game-screen" style="display:none;">
+            <!-- Верхняя панель: игроки -->
+            <div id="top-bar">
+                <div id="player1-info" class="player-info">⚔️ Игрок 1: ❤️ 20/20</div>
+                <div id="player2-info" class="player-info">💚 Игрок 2: ❤️ 22/22</div>
+                <div id="turn-indicator">Ход: ⚔️ Игрок 1</div>
+            </div>
+
+            <!-- Карта подземелья -->
+            <div id="dungeon-container">
+                <div id="minimap">
+                    <!-- Мини-карта будет отрисована через JS -->
+                </div>
+                <div id="room-view">
+                    <!-- Текущая комната -->
+                </div>
+            </div>
+
+            <!-- Панель слотов -->
+            <div id="slots-bar">
+                <!-- Слоты будут отрисованы через JS -->
+            </div>
+
+            <!-- Чат -->
+            <div id="chat-container">
+                <div id="chat-messages"></div>
+                <div id="chat-input-container">
+                    <input type="text" id="chat-input" placeholder="Сообщение...">
+                    <button id="chat-send">📤</button>
+                </div>
+                <div id="ping-bar">
+                    <button class="ping-btn" data-emoji="⚠️">⚠️</button>
+                    <button class="ping-btn" data-emoji="💎">💎</button>
+                    <button class="ping-btn" data-emoji="🏃">🏃</button>
+                    <button class="ping-btn" data-emoji="❤️">❤️</button>
+                    <button class="ping-btn" data-emoji="🛑">🛑</button>
+                </div>
+            </div>
+
+            <!-- Кнопки действий -->
+            <div id="action-bar">
+                <button id="btn-inventory">📦 Инвентарь</button>
+                <button id="btn-map">🗺️ Карта</button>
+                <button id="btn-roll">🎲 Бросить</button>
+            </div>
+        </div>
+
+        <!-- Модальные окна -->
+        <div id="modal-overlay" style="display:none;">
+            <div id="modal-content">
+                <!-- Содержимое модалки будет отрисовано через JS -->
+            </div>
+        </div>
+
+        <!-- 3D контейнер для кубиков (поверх всего) -->
+        <div id="dice-container" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:1000; background:rgba(0,0,0,0.8);">
+            <div id="dice-canvas-container"></div>
+            <div id="dice-result" style="display:none; position:absolute; bottom:20%; left:50%; transform:translateX(-50%); color:white; font-size:24px; text-align:center; background:rgba(0,0,0,0.7); padding:20px; border-radius:10px;">
+                <!-- Результат броска -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Подключаем JS -->
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
