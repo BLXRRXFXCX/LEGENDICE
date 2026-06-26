@@ -513,14 +513,7 @@ export function showDiceModal(diceValues, comboName, comboEffect) {
     }
 }
 
-export function closeDiceModal() {
-    document.getElementById('dice-container').style.display = 'none';
-    document.getElementById('dice-result').style.display = 'none';
-    document.getElementById('dice-close-btn').style.display = 'none';
-    window.diceSelections = {};
-}
 
-window.closeDiceModal = closeDiceModal;
 
 // ----- ЭКСПОРТ -----
 export default {
