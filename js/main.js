@@ -1,10 +1,5 @@
 // ============================================================
 // LEGENDICE - main.js (ПОЛНАЯ ВЕРСИЯ)
-// Все механики: лобби, подземелье, бой, инвентарь, чат, пинги
-// ============================================================
-
-// ============================================================
-// LEGENDICE - main.js (ВЕРХНЯЯ ЧАСТЬ С ИМПОРТАМИ)
 // ============================================================
 
 // ----- ИМПОРТЫ -----
@@ -29,14 +24,12 @@ import {
     RARITY, ITEMS, CONSUMABLES, COMBO_EMOJI
 } from './constants.js';
 
-// В ЭТОМ ИМПОРТЕ МЫ УЖЕ НЕ ПОДКЛЮЧАЕМ closeDiceModal
 import {
     initUI, showLobby, showGame, updateUI,
     openModal, closeModal, showDiceModal,
     showItemInfo
 } from './ui.js';
 
-// А ВОТ ОТСЮДА МЫ БЕРЕМ closeDiceModal (3D-версия)
 import { initDice3D, rollDice, closeDiceModal } from './dice3d.js';
 
 import {
@@ -56,11 +49,9 @@ let diceSelections = {};
 let selectedEnemyIndex = null;
 let selectedAllyId = null;
 
-
-// ----- ГЛОБАЛЬНЫЕ ОБЪЕКТЫ ДЛЯ UI -----
+// Глобальные объекты для UI
 window.currentDiceValues = [];
 window.diceSelections = {};
-
 
 // ============================================================
 // 1. ИНИЦИАЛИЗАЦИЯ
@@ -183,7 +174,6 @@ function showLobbyScreen() {
                     navigator.clipboard.writeText(link).then(() => {
                         status.textContent = '✅ Ссылка скопирована!';
                     }).catch(() => {
-                        // Fallback
                         inviteInput.select();
                         document.execCommand('copy');
                         status.textContent = '✅ Ссылка скопирована!';
@@ -232,62 +222,49 @@ function showLobbyScreen() {
 // ============================================================
 
 async function initializeGame(gameId) {
-    // Проверяем, есть ли уже данные игры
     const data = await getGameData(gameId);
     
     if (!data.dungeon) {
-        // Генерируем подземелье
         const totalFloors = 5;
         const dungeon = generateDungeon(totalFloors);
         const firstRoom = Object.keys(dungeon.rooms)[0];
         
-      const updates = {
-    dungeon: dungeon,
-    status: 'dungeon',
-    turn: {
-        currentPlayer: 'player1',
-        phase: 'idle',
-        order: ['player1', 'player2'],
-        index: 0,
-        diceValues: [],
-        selectedAttack: [],
-        selectedDefense: [],
-        targetAttack: null,
-        targetDefense: null,
-        combo: null
-    }
-};
-
-// Обновляем позиции отдельно
-if (data.players.player1) {
-    updates['players.player1.position'] = firstRoom;
-}
-if (data.players.player2) {
-    updates['players.player2.position'] = firstRoom;
-}
+        const updates = {
+            dungeon: dungeon,
+            status: 'dungeon',
+            turn: {
+                currentPlayer: 'player1',
+                phase: 'idle',
+                order: ['player1', 'player2'],
+                index: 0,
+                diceValues: [],
+                selectedAttack: [],
+                selectedDefense: [],
+                targetAttack: null,
+                targetDefense: null,
+                combo: null
+            }
         };
         
         // Обновляем позиции
         if (data.players.player1) {
-            updates[`players.player1.position`] = firstRoom;
+            updates['players.player1.position'] = firstRoom;
         }
         if (data.players.player2) {
-            updates[`players.player2.position`] = firstRoom;
+            updates['players.player2.position'] = firstRoom;
         }
         
         await updateGameState(gameId, updates);
     }
     
-    // Переключаем экраны
     document.getElementById('lobby-screen').style.display = 'none';
     document.getElementById('game-screen').style.display = 'flex';
     
-    // Настраиваем UI
     setupGameUI();
 }
 
 // ============================================================
-// 4. ОБРАБОТКА ОБНОВЛЕНИЙ ИГРЫ (Firebase)
+// 4. ОБРАБОТКА ОБНОВЛЕНИЙ
 // ============================================================
 
 function handleGameUpdate(data) {
@@ -296,7 +273,6 @@ function handleGameUpdate(data) {
         return;
     }
     
-    // Инициализируем logs, если их нет
     if (!data.logs) data.logs = [];
     if (!data.chat) data.chat = [];
     if (!data.pings) data.pings = [];
@@ -320,18 +296,15 @@ function handleGameUpdate(data) {
         alert('🎉 Подземелье пройдено!');
     }
     
-    // Обновляем UI
     updateUI(data, myPlayerId, isMyTurn);
-    
-    // Проверяем, нужно ли начать бой (с защитой от бесконечного цикла)
     checkAndStartCombat(data, myPlayerId);
 }
+
 // ============================================================
 // 5. НАСТРОЙКА UI
 // ============================================================
 
 function setupGameUI() {
-    // Кнопка броска
     document.getElementById('btn-roll').addEventListener('click', function() {
         if (!isMyTurn) { alert('⏳ Сейчас не ваш ход!'); return; }
         const room = getRoom(gameState.dungeon, gameState.players[currentPlayerId]?.position);
@@ -342,24 +315,18 @@ function setupGameUI() {
         handleRollDice();
     });
     
-    // Инвентарь
     document.getElementById('btn-inventory').addEventListener('click', showInventoryModal);
-    
-    // Карта
     document.getElementById('btn-map').addEventListener('click', showMapModal);
     
-    // Закрытие 3D модалки
     document.getElementById('dice-close-btn')?.addEventListener('click', () => {
         closeDiceModal();
     });
     
-    // Чат
     document.getElementById('chat-send')?.addEventListener('click', sendChat);
     document.getElementById('chat-input')?.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') sendChat();
     });
     
-    // Пинги
     document.querySelectorAll('.ping-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const emoji = this.dataset.emoji;
@@ -372,41 +339,7 @@ function setupGameUI() {
 }
 
 // ============================================================
-// 6. НАЧАЛО БОЯ (С ЗАЩИТОЙ ОТ БЕСКОНЕЧНОГО ЦИКЛА)
-// ============================================================
-
-function checkAndStartCombat(data, myPlayerId) {
-    const room = getRoom(data.dungeon, data.players[myPlayerId]?.position);
-    if (!room) return;
-    if (room.type !== 'combat' && room.type !== 'boss') return;
-    if (room.isCleared) return;
-    
-    // Проверяем, есть ли живые враги
-    const hasAlive = room.enemies?.some(e => e.isAlive);
-    if (!hasAlive) {
-        room.isCleared = true;
-       updateGameState(currentGameId, { 
-    dungeon: data.dungeon,
-    turn: data.turn 
-});
-        return;
-    }
-    
-    // Если ход текущего игрока и бой ещё не начат
-    // ВАЖНО: проверяем, что phase === 'idle', чтобы не зацикливаться
-    if (data.turn?.currentPlayer === myPlayerId && data.turn?.phase === 'idle') {
-        // Показываем уведомление
-        const msg = room.type === 'boss' ? '👑 БОСС!' : '⚔️ Начинается бой!';
-        addLog(msg);
-        // Переводим в фазу броска (только если ещё не в фазе броска)
-        if (data.turn.phase !== 'roll') {
-            data.turn.phase = 'roll';
-            updateGameState(currentGameId, { turn: data.turn });
-        }
-    }
-}
-// ============================================================
-// 7. БРОСОК КУБИКОВ
+// 6. БРОСОК КУБИКОВ
 // ============================================================
 
 function handleRollDice() {
@@ -417,7 +350,6 @@ function handleRollDice() {
         return;
     }
     
-    // Бросаем 2d6
     const count = 2;
     diceValues = [];
     for (let i = 0; i < count; i++) {
@@ -426,23 +358,19 @@ function handleRollDice() {
     
     console.log('🎲 Выпало:', diceValues);
     
-    // Проверяем комбинации
     const combo = checkCombo(player.class, diceValues);
     
-    // Сохраняем в состояние
     gameState.turn.diceValues = diceValues;
     gameState.turn.phase = 'distribute';
     gameState.turn.combo = combo;
     
     updateGameState(currentGameId, { turn: gameState.turn });
     
-    // Показываем модалку
     window.currentDiceValues = diceValues;
     window.diceSelections = {};
     
     if (combo) {
         showDiceModal(diceValues, combo.name, combo.description);
-        // Применяем комбинацию автоматически, если не требует выбора цели
         if (combo.target === 'self' || combo.target === 'all_allies' || combo.target === 'all_enemies') {
             setTimeout(() => {
                 applyCombo(currentPlayerId, combo);
@@ -450,19 +378,15 @@ function handleRollDice() {
                 nextTurn();
             }, 2500);
         } else {
-            // Требует выбора цели
             gameState.turn.phase = 'select_target';
             updateGameState(currentGameId, { turn: gameState.turn });
-            // Показываем подсветку целей в UI
             updateUI(gameState, currentPlayerId, isMyTurn);
         }
     } else {
         showDiceModal(diceValues, null, null);
-        // Ждём распределения через кнопки в модалке
     }
 }
 
-// ----- ПРОВЕРКА КОМБИНАЦИЙ -----
 function checkCombo(className, diceValues) {
     const combos = COMBOS[className];
     if (!combos) return null;
@@ -478,20 +402,13 @@ function checkCombo(className, diceValues) {
     return null;
 }
 
-// ----- ПРИМЕНЕНИЕ КОМБИНАЦИИ -----
 function applyCombo(playerId, combo) {
     const player = gameState.players[playerId];
-    if (!player) {
-        console.warn('⚠️ Игрок не найден');
-        return;
-    }
+    if (!player) return;
     
     console.log(`🔥 Применяем: ${combo.name}`);
     const room = getRoom(gameState.dungeon, player.position);
-    if (!room) {
-        console.warn('⚠️ Комната не найдена');
-        return;
-    }
+    if (!room) return;
     
     switch (combo.effect) {
         case 'heal_all':
@@ -503,7 +420,6 @@ function applyCombo(playerId, combo) {
             });
             addLog(`💚 ${player.name} лечит всех на ${combo.value} HP`);
             break;
-            
         case 'damage_all':
             if (room?.enemies) {
                 room.enemies.forEach(enemy => {
@@ -520,7 +436,6 @@ function applyCombo(playerId, combo) {
             }
             addLog(`🔥 ${player.name} наносит ${combo.value} урона всем врагам!`);
             break;
-            
         case 'shield':
             const allyId = combo.target === 'ally' ? 
                 Object.keys(gameState.players).find(id => id !== playerId && gameState.players[id]?.isAlive) : 
@@ -531,12 +446,10 @@ function applyCombo(playerId, combo) {
                 addLog(`🛡️ ${player.name} даёт щит ${combo.value} HP ${gameState.players[allyId].name}`);
             }
             break;
-            
         case 'defense_boost':
             player.defense += combo.value;
             addLog(`🪨 ${player.name} получает +${combo.value} к защите`);
             break;
-            
         case 'stun':
             if (room?.enemies) {
                 const target = room.enemies.find(e => e.isAlive);
@@ -546,7 +459,6 @@ function applyCombo(playerId, combo) {
                 }
             }
             break;
-            
         case 'instant_kill':
             if (room?.enemies) {
                 const target = room.enemies.find(e => e.isAlive && e.type !== 'boss');
@@ -555,7 +467,6 @@ function applyCombo(playerId, combo) {
                     target.hp = 0;
                     addLog(`🗡️ ${player.name} мгновенно убивает ${target.name}!`);
                 } else {
-                    // Если босс — наносим урон x3
                     const boss = room.enemies.find(e => e.isAlive && e.type === 'boss');
                     if (boss) {
                         const damage = combo.value || 15;
@@ -571,7 +482,6 @@ function applyCombo(playerId, combo) {
                 }
             }
             break;
-            
         case 'damage':
             if (room?.enemies) {
                 const target = room.enemies.find(e => e.isAlive);
@@ -587,22 +497,18 @@ function applyCombo(playerId, combo) {
                 }
             }
             break;
-            
         default:
             console.log(`⚠️ Неизвестный эффект: ${combo.effect}`);
     }
     
-    // Проверяем, зачищена ли комната
     if (room) updateRoomAfterCombat(room);
     
-    // Синхронизируем с Firebase
-  updateGameState(currentGameId, {
-    players: gameState.players,
-    dungeon: gameState.dungeon
-});
+    updateGameState(currentGameId, {
+        players: gameState.players,
+        dungeon: gameState.dungeon
+    });
 }
 
-// ----- ПОДТВЕРЖДЕНИЕ РАСПРЕДЕЛЕНИЯ КУБИКОВ -----
 window.confirmDiceDistribution = function(attackSum, defenseSum, selections) {
     const player = gameState.players[currentPlayerId];
     if (!player) return;
@@ -610,11 +516,9 @@ window.confirmDiceDistribution = function(attackSum, defenseSum, selections) {
     const room = getRoom(gameState.dungeon, player.position);
     if (!room) return;
     
-    // Сохраняем выбор
     gameState.turn.selectedAttack = Object.keys(selections).filter(i => selections[i] === 'attack').map(i => parseInt(i));
     gameState.turn.selectedDefense = Object.keys(selections).filter(i => selections[i] === 'defense').map(i => parseInt(i));
     
-    // Применяем атаку и защиту
     if (attackSum > 0) {
         const target = room.enemies?.find(e => e.isAlive);
         if (target) {
@@ -637,34 +541,28 @@ window.confirmDiceDistribution = function(attackSum, defenseSum, selections) {
         addLog(`🛡️ ${player.name} получает щит ${defenseSum} HP`);
     }
     
-    // Проверяем, зачищена ли комната
     updateRoomAfterCombat(room);
     
-    // Синхронизируем
-  updateGameState(currentGameId, {
-    players: gameState.players,
-    dungeon: gameState.dungeon,
-    turn: gameState.turn
-});
+    updateGameState(currentGameId, {
+        players: gameState.players,
+        dungeon: gameState.dungeon,
+        turn: gameState.turn
+    });
     
-    // Переход хода
     nextTurn();
 };
 
 // ============================================================
-// 8. ХОДЫ
+// 7. ХОДЫ
 // ============================================================
 
 function nextTurn() {
     if (!gameState) return;
     
-    // Проверяем, есть ли живые враги
     const player = gameState.players[currentPlayerId];
     const room = getRoom(gameState.dungeon, player?.position);
     
-    // Если комната зачищена или нет врагов — переход
     if (!room || room.isCleared || room.type === 'rest' || room.type === 'shop') {
-        // Переключаем ход
         const order = ['player1', 'player2'];
         const currentIdx = gameState.turn.index || 0;
         const nextIdx = (currentIdx + 1) % order.length;
@@ -682,14 +580,12 @@ function nextTurn() {
         return;
     }
     
-    // Проверяем, все ли враги мертвы
     const hasAlive = room.enemies?.some(e => e.isAlive);
     if (!hasAlive) {
         room.isCleared = true;
         addLog(`✅ Комната зачищена!`);
         updateGameState(currentGameId, { dungeon: gameState.dungeon });
         
-        // Переключаем ход
         const order = ['player1', 'player2'];
         const currentIdx = gameState.turn.index || 0;
         const nextIdx = (currentIdx + 1) % order.length;
@@ -702,13 +598,11 @@ function nextTurn() {
         return;
     }
     
-    // Переключаем ход
     const order = ['player1', 'player2'];
     const currentIdx = gameState.turn.index || 0;
     const nextIdx = (currentIdx + 1) % order.length;
     const nextPlayer = order[nextIdx];
     
-    // Проверяем, жив ли следующий игрок
     const nextPlayerData = gameState.players[nextPlayer];
     if (!nextPlayerData || !nextPlayerData.isAlive) {
         gameState.turn.index = nextIdx;
@@ -727,6 +621,33 @@ function nextTurn() {
     
     updateGameState(currentGameId, { turn: gameState.turn });
     addLog(`🎯 Ход переходит к ${nextPlayerData.name}`);
+}
+
+// ============================================================
+// 8. НАЧАЛО БОЯ
+// ============================================================
+
+function checkAndStartCombat(data, myPlayerId) {
+    const room = getRoom(data.dungeon, data.players[myPlayerId]?.position);
+    if (!room) return;
+    if (room.type !== 'combat' && room.type !== 'boss') return;
+    if (room.isCleared) return;
+    
+    const hasAlive = room.enemies?.some(e => e.isAlive);
+    if (!hasAlive) {
+        room.isCleared = true;
+        updateGameState(currentGameId, { dungeon: data.dungeon });
+        return;
+    }
+    
+    if (data.turn?.currentPlayer === myPlayerId && data.turn?.phase === 'idle') {
+        const msg = room.type === 'boss' ? '👑 БОСС!' : '⚔️ Начинается бой!';
+        addLog(msg);
+        if (data.turn.phase !== 'roll') {
+            data.turn.phase = 'roll';
+            updateGameState(currentGameId, { turn: data.turn });
+        }
+    }
 }
 
 // ============================================================
@@ -763,14 +684,12 @@ window.selectRoom = function(roomId) {
     const targetRoom = getRoom(gameState.dungeon, roomId);
     if (!targetRoom) return;
     
-    // Обновляем позицию
     player.position = roomId;
     if (!targetRoom.players) targetRoom.players = [];
     if (!targetRoom.players.includes(currentPlayerId)) {
         targetRoom.players.push(currentPlayerId);
     }
     
-    // Удаляем игрока из старой комнаты
     if (currentRoom && currentRoom.players) {
         currentRoom.players = currentRoom.players.filter(id => id !== currentPlayerId);
     }
@@ -793,10 +712,8 @@ window.selectEnemyTarget = function(index) {
     gameState.turn.targetAttack = index;
     gameState.turn.phase = 'apply';
     
-    // Применяем комбинацию или атаку
     const combo = gameState.turn.combo;
     if (combo) {
-        // Применяем комбинацию к выбранному врагу
         applyComboToTarget(currentPlayerId, combo, enemy);
     }
     
@@ -805,7 +722,6 @@ window.selectEnemyTarget = function(index) {
     nextTurn();
 };
 
-// ----- ПРИМЕНЕНИЕ КОМБО К ЦЕЛИ -----
 function applyComboToTarget(playerId, combo, enemy) {
     const player = gameState.players[playerId];
     if (!player) return;
@@ -836,7 +752,6 @@ function applyComboToTarget(playerId, combo, enemy) {
             addLog(`🩸 ${enemy.name} получает кровотечение!`);
             break;
         default:
-            // Другие эффекты
             addLog(`✨ ${player.name} применяет ${combo.name} к ${enemy.name}`);
     }
     
@@ -873,11 +788,9 @@ window.buyShopAction = function(index) {
     const item = room.shopItems[index];
     if (!item) return;
     
-    // Проверяем золото (пока нет)
     const bought = buyShopItem(item, gameState.players[currentPlayerId]);
     if (bought) {
         addLog(`🛒 ${gameState.players[currentPlayerId].name} купил ${item.name}`);
-        // Удаляем товар из магазина
         room.shopItems.splice(index, 1);
         updateGameState(currentGameId, {
             dungeon: gameState.dungeon,
@@ -904,8 +817,6 @@ window.restHealAction = function() {
         dungeon: gameState.dungeon
     });
     updateUI(gameState, currentPlayerId, isMyTurn);
-    
-    // Переход хода
     nextTurn();
 };
 
