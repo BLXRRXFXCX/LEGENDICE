@@ -7,7 +7,7 @@
 export const CLASSES = {
     tank: {
         id: 'tank',
-        name: 'Танк',
+        name: 'Защитник',
         emoji: '🛡️',
         hp: 30,
         maxHp: 30,
@@ -22,7 +22,7 @@ export const CLASSES = {
     },
     dd: {
         id: 'dd',
-        name: 'Боец',
+        name: 'Воин',
         emoji: '⚔️',
         hp: 20,
         maxHp: 20,
@@ -37,7 +37,7 @@ export const CLASSES = {
     },
     healer: {
         id: 'healer',
-        name: 'Хилер',
+        name: 'Жрец',
         emoji: '💚',
         hp: 22,
         maxHp: 22,
