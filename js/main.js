@@ -353,7 +353,7 @@ function setupGameUI() {
 }
 
 // ============================================================
-// 6. НАЧАЛО БОЯ
+// 6. НАЧАЛО БОЯ (С ЗАЩИТОЙ ОТ БЕСКОНЕЧНОГО ЦИКЛА)
 // ============================================================
 
 function checkAndStartCombat(data, myPlayerId) {
@@ -371,16 +371,18 @@ function checkAndStartCombat(data, myPlayerId) {
     }
     
     // Если ход текущего игрока и бой ещё не начат
+    // ВАЖНО: проверяем, что phase === 'idle', чтобы не зацикливаться
     if (data.turn?.currentPlayer === myPlayerId && data.turn?.phase === 'idle') {
         // Показываем уведомление
         const msg = room.type === 'boss' ? '👑 БОСС!' : '⚔️ Начинается бой!';
         addLog(msg);
-        // Переводим в фазу броска
-        data.turn.phase = 'roll';
-        updateGameState(currentGameId, { turn: data.turn });
+        // Переводим в фазу броска (только если ещё не в фазе броска)
+        if (data.turn.phase !== 'roll') {
+            data.turn.phase = 'roll';
+            updateGameState(currentGameId, { turn: data.turn });
+        }
     }
 }
-
 // ============================================================
 // 7. БРОСОК КУБИКОВ
 // ============================================================
