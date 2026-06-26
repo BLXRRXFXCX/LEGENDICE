@@ -3,6 +3,11 @@
 // Все механики: лобби, подземелье, бой, инвентарь, чат, пинги
 // ============================================================
 
+// ============================================================
+// LEGENDICE - main.js (ВЕРХНЯЯ ЧАСТЬ С ИМПОРТАМИ)
+// ============================================================
+
+// ----- ИМПОРТЫ -----
 import './firebase.js';
 import {
     signInAnonymously,
@@ -18,16 +23,22 @@ import {
     updatePlayerPosition,
     getGameData
 } from './firebase.js';
+
 import {
     CLASSES, SLOT_TYPES, ENEMIES, BOSS, COMBOS,
     RARITY, ITEMS, CONSUMABLES, COMBO_EMOJI
 } from './constants.js';
+
+// В ЭТОМ ИМПОРТЕ МЫ УЖЕ НЕ ПОДКЛЮЧАЕМ closeDiceModal
 import {
     initUI, showLobby, showGame, updateUI,
-    openModal, closeModal, showDiceModal, closeDiceModal,
+    openModal, closeModal, showDiceModal,
     showItemInfo
 } from './ui.js';
-import { initDice3D, rollDice, closeDiceModal as closeDice3D } from './dice3d.js';
+
+// А ВОТ ОТСЮДА МЫ БЕРЕМ closeDiceModal (3D-версия)
+import { initDice3D, rollDice, closeDiceModal } from './dice3d.js';
+
 import {
     generateDungeon, getRoom, updateRoomAfterCombat,
     isRoomCleared, openChest, buyShopItem
