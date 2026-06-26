@@ -79,6 +79,8 @@ function animate() {
 }
 
 // ----- БРОСОК КУБИКОВ -----
+let positions = []; // <-- ОБЪЯВЛЯЕМ ГЛОБАЛЬНО
+
 export function rollDice(count = 2, callback = null) {
     if (isRolling) return;
     isRolling = true;
@@ -93,7 +95,8 @@ export function rollDice(count = 2, callback = null) {
         values.push(Math.floor(Math.random() * 6) + 1);
     }
     
-    positions = [];
+    // ОБЪЯВЛЯЕМ positions ЗДЕСЬ (локально)
+    const positions = [];
     for (let i = 0; i < count; i++) {
         const x = (count > 1) ? (i / (count - 1)) * totalWidth - totalWidth / 2 : 0;
         positions.push(x);
