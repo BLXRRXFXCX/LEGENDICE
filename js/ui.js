@@ -511,7 +511,6 @@ export function showDiceModal(diceValues, comboName, comboEffect) {
             });
         }
     }
-}
 
 
 
@@ -524,6 +523,5 @@ export default {
     openModal,
     closeModal,
     showDiceModal,
-    closeDiceModal,
     showItemInfo
 };
