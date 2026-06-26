@@ -1,20 +1,8 @@
 // ============================================================
-// LEGENDICE - firebase.js
-// Подключение Firebase, аутентификация, синхронизация
+// LEGENDICE - firebase.js (ВЕРСИЯ БЕЗ ДУБЛЕЙ)
 // ============================================================
 
-// ----- КОНФИГУРАЦИЯ FIREBASE (ЗАМЕНИТЕ НА СВОЙ) -----
-const firebaseConfig = {
-    apiKey: "AIzaSyAn-mNXyJYWPAGb_jqsCt38pu5pwq0_pBA",
-    authDomain: "legendice.firebaseapp.com",
-    databaseURL: "https://legendice-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "legendice",
-    storageBucket: "legendice.firebasestorage.app",
-    messagingSenderId: "133073704952",
-    appId: "1:133073704952:web:61253fbe0606a9f44b280d"
-};
-
-// ----- ИНИЦИАЛИЗАЦИЯ -----
+const firebaseConfig = { ... };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
@@ -23,8 +11,8 @@ let currentUser = null;
 let currentGameId = null;
 let unsubscribeGame = null;
 
-// ----- АНОНИМНАЯ АУТЕНТИФИКАЦИЯ -----
-export function signInAnonymously() {
+// ----- ФУНКЦИИ (БЕЗ export) -----
+function signInAnonymously() {
     return auth.signInAnonymously()
         .then((userCredential) => {
             currentUser = userCredential.user;
@@ -37,12 +25,11 @@ export function signInAnonymously() {
         });
 }
 
-export function getCurrentUser() {
+function getCurrentUser() {
     return currentUser || auth.currentUser;
 }
 
-// ----- ПОЛУЧИТЬ ДАННЫЕ ИГРЫ -----
-export function getGameData(gameId) {
+function getGameData(gameId) {
     return db.collection('games').doc(gameId).get()
         .then((doc) => {
             if (doc.exists) {
@@ -53,8 +40,7 @@ export function getGameData(gameId) {
         });
 }
 
-// ----- СОЗДАТЬ ИГРУ -----
-export function createGame(playerName, playerClass) {
+function createGame(playerName, playerClass) {
     if (!getCurrentUser()) {
         return Promise.reject(new Error('Пользователь не аутентифицирован'));
     }
@@ -98,8 +84,7 @@ export function createGame(playerName, playerClass) {
         });
 }
 
-// ----- ПОДКЛЮЧИТЬСЯ К ИГРЕ -----
-export function joinGame(gameId, playerName, playerClass) {
+function joinGame(gameId, playerName, playerClass) {
     if (!getCurrentUser()) {
         return Promise.reject(new Error('Пользователь не аутентифицирован'));
     }
@@ -114,7 +99,6 @@ export function joinGame(gameId, playerName, playerClass) {
             }
             const data = doc.data();
             
-            // Ищем свободный слот
             let slot = null;
             if (!data.players.player1) slot = 'player1';
             else if (!data.players.player2) slot = 'player2';
@@ -147,15 +131,13 @@ export function joinGame(gameId, playerName, playerClass) {
         });
 }
 
-// ----- ОБНОВИТЬ СОСТОЯНИЕ ИГРЫ -----
-export function updateGameState(gameId, data) {
+function updateGameState(gameId, data) {
     const gameRef = db.collection('games').doc(gameId);
     data.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
     return gameRef.update(data);
 }
 
-// ----- ПОДПИСАТЬСЯ НА ИЗМЕНЕНИЯ -----
-export function subscribeToGame(gameId, callback) {
+function subscribeToGame(gameId, callback) {
     if (unsubscribeGame) {
         unsubscribeGame();
         unsubscribeGame = null;
@@ -177,16 +159,14 @@ export function subscribeToGame(gameId, callback) {
     return unsubscribeGame;
 }
 
-// ----- ОТПИСАТЬСЯ -----
-export function unsubscribeFromGame() {
+function unsubscribeFromGame() {
     if (unsubscribeGame) {
         unsubscribeGame();
         unsubscribeGame = null;
     }
 }
 
-// ----- ОТПРАВИТЬ СООБЩЕНИЕ В ЧАТ -----
-export function sendChatMessage(gameId, playerId, message) {
+function sendChatMessage(gameId, playerId, message) {
     const gameRef = db.collection('games').doc(gameId);
     return gameRef.update({
         chat: firebase.firestore.FieldValue.arrayUnion({
@@ -198,8 +178,7 @@ export function sendChatMessage(gameId, playerId, message) {
     });
 }
 
-// ----- ОТПРАВИТЬ ПИНГ -----
-export function sendPing(gameId, playerId, roomId, emoji) {
+function sendPing(gameId, playerId, roomId, emoji) {
     const gameRef = db.collection('games').doc(gameId);
     return gameRef.update({
         pings: firebase.firestore.FieldValue.arrayUnion({
@@ -212,8 +191,7 @@ export function sendPing(gameId, playerId, roomId, emoji) {
     });
 }
 
-// ----- ГОТОВНОСТЬ ИГРОКА -----
-export function setPlayerReady(gameId, playerId, isReady) {
+function setPlayerReady(gameId, playerId, isReady) {
     const gameRef = db.collection('games').doc(gameId);
     const updateData = {};
     updateData[`players.${playerId}.isReady`] = isReady;
@@ -221,8 +199,7 @@ export function setPlayerReady(gameId, playerId, isReady) {
     return gameRef.update(updateData);
 }
 
-// ----- ОБНОВИТЬ ПОЗИЦИЮ ИГРОКА -----
-export function updatePlayerPosition(gameId, playerId, roomId) {
+function updatePlayerPosition(gameId, playerId, roomId) {
     const gameRef = db.collection('games').doc(gameId);
     const updateData = {};
     updateData[`players.${playerId}.position`] = roomId;
@@ -230,8 +207,7 @@ export function updatePlayerPosition(gameId, playerId, roomId) {
     return gameRef.update(updateData);
 }
 
-// ----- УДАЛИТЬ ИГРУ -----
-export function deleteGame(gameId) {
+function deleteGame(gameId) {
     return db.collection('games').doc(gameId).delete()
         .then(() => {
             console.log('🗑️ Игра удалена');
@@ -241,8 +217,7 @@ export function deleteGame(gameId) {
 
 console.log('🔥 Firebase инициализирован. Режим:', navigator.onLine ? 'онлайн' : 'офлайн');
 
-// js/firebase.js - добавить в конец файла
-
+// ----- ЕДИНСТВЕННЫЙ ЭКСПОРТ В КОНЦЕ -----
 export {
     signInAnonymously,
     getCurrentUser,
@@ -255,5 +230,6 @@ export {
     sendChatMessage,
     sendPing,
     setPlayerReady,
-    updatePlayerPosition
+    updatePlayerPosition,
+    deleteGame
 };
