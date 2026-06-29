@@ -1,8 +1,7 @@
 // ============================================================
-// LEGENDICE - main.js (ПОЛНАЯ ВЕРСИЯ)
+// LEGENDICE - main.js (FULL VERSION)
 // ============================================================
 
-// ----- ИМПОРТЫ -----
 import './firebase.js';
 import {
     signInAnonymously,
@@ -30,11 +29,12 @@ import {
     showItemInfo
 } from './ui.js';
 
-import { initDice3D, rollDice, closeDiceModal } from './dice3d.js';
+import { initDice3D, rollDiceWithValues, closeDiceModal } from './dice3d.js';
 
 import {
-    generateDungeon, getRoom, updateRoomAfterCombat,
-    isRoomCleared, openChest, buyShopItem
+    generateDungeon, getRoom, getCurrentFloorRooms,
+    isFloorCleared, goToNextFloor, updateRoomAfterCombat,
+    openChest, buyShopItem
 } from './game.js';
 
 // ----- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ -----
@@ -49,9 +49,12 @@ let diceSelections = {};
 let selectedEnemyIndex = null;
 let selectedAllyId = null;
 
-// Глобальные объекты для UI
 window.currentDiceValues = [];
 window.diceSelections = {};
+
+// ----- СОСТОЯНИЕ ЛОББИ -----
+let isReady = false;
+let bothReady = false;
 
 // ============================================================
 // 1. ИНИЦИАЛИЗАЦИЯ
@@ -129,6 +132,9 @@ function showLobbyScreen() {
                 <button class="btn-secondary" id="btn-join-game">Подключиться</button>
             </div>
             <div id="lobby-status" style="color:#888; font-size:14px; margin-top:8px; min-height:20px;">👋 Выберите класс и создайте игру</div>
+            <button id="btn-ready" class="btn-success" style="display:none; padding:12px; border-radius:8px; border:none; font-weight:bold; cursor:pointer; margin-top:10px;">
+                ✅ Я готов
+            </button>
             <div id="invite-section" style="display:none; margin-top:8px; padding:10px; background:#1e2337; border-radius:8px;">
                 <div style="color:#888; font-size:11px;">🔗 Ссылка для приглашения:</div>
                 <div style="display:flex; gap:6px; align-items:center; margin-top:4px;">
@@ -163,7 +169,7 @@ function showLobbyScreen() {
             currentPlayerId = 'player1';
             if (status) status.textContent = `✅ Игра создана! Код: ${gameId}`;
             
-            // Показываем ссылку для приглашения
+            // Показываем ссылку
             const inviteSection = document.getElementById('invite-section');
             const inviteInput = document.getElementById('invite-link-input');
             if (inviteSection && inviteInput) {
@@ -181,10 +187,12 @@ function showLobbyScreen() {
                 });
             }
             
+            // Показываем кнопку "Я готов"
+            document.getElementById('btn-ready').style.display = 'block';
+            
             if (unsubscribeGame) unsubscribeGame();
             unsubscribeGame = subscribeToGame(gameId, handleGameUpdate);
             
-            await initializeGame(gameId);
         } catch (error) {
             console.error(error);
             if (status) status.textContent = `❌ Ошибка: ${error.message}`;
@@ -206,19 +214,89 @@ function showLobbyScreen() {
             currentPlayerId = 'player2';
             if (status) status.textContent = `✅ Подключено к игре: ${gameId}`;
             
+            // Показываем кнопку "Я готов"
+            document.getElementById('btn-ready').style.display = 'block';
+            
             if (unsubscribeGame) unsubscribeGame();
             unsubscribeGame = subscribeToGame(gameId, handleGameUpdate);
             
-            await initializeGame(gameId);
         } catch (error) {
             console.error(error);
             if (status) status.textContent = `❌ Ошибка: ${error.message}`;
         }
     });
+    
+    // Кнопка "Я готов"
+    document.getElementById('btn-ready').addEventListener('click', async function() {
+        if (!currentGameId || !currentPlayerId) return;
+        isReady = true;
+        await setPlayerReady(currentGameId, currentPlayerId, true);
+        document.getElementById('btn-ready').disabled = true;
+        document.getElementById('btn-ready').textContent = '⏳ Ожидание второго игрока...';
+    });
 }
 
 // ============================================================
-// 3. ИНИЦИАЛИЗАЦИЯ ИГРЫ
+// 3. ОБРАБОТКА ОБНОВЛЕНИЙ (Firebase)
+// ============================================================
+
+function handleGameUpdate(data) {
+    if (!data) {
+        console.warn('⚠️ Нет данных игры');
+        return;
+    }
+    
+    if (!data.logs) data.logs = [];
+    if (!data.chat) data.chat = [];
+    if (!data.pings) data.pings = [];
+    
+    gameState = data;
+    
+    const user = getCurrentUser();
+    let myPlayerId = null;
+    if (data.players?.player1?.uid === user?.uid) myPlayerId = 'player1';
+    else if (data.players?.player2?.uid === user?.uid) myPlayerId = 'player2';
+    
+    if (!myPlayerId) {
+        console.warn('⚠️ Игрок не найден');
+        return;
+    }
+    
+    currentPlayerId = myPlayerId;
+    isMyTurn = data.turn?.currentPlayer === myPlayerId;
+    
+    // Проверяем готовность обоих игроков
+    const p1 = data.players?.player1;
+    const p2 = data.players?.player2;
+    if (p1 && p2 && p1.isReady && p2.isReady && !data.dungeon) {
+        // Оба игрока готовы, начинаем игру
+        initializeGame(currentGameId);
+    }
+    
+    // Если игра уже началась
+    if (data.dungeon) {
+        // Проверяем, нужно ли перейти на следующий этаж (если текущий этаж зачищен и есть выход)
+        const dungeon = data.dungeon;
+        const currentFloor = dungeon.currentFloor || 1;
+        const floorRooms = getCurrentFloorRooms(dungeon);
+        const allCleared = floorRooms.every(id => {
+            const room = dungeon.rooms[id];
+            return room.isCleared || room.type === 'exit';
+        });
+        // Проверяем, есть ли комната "exit" на текущем этаже и она очищена
+        const exitRoom = floorRooms.find(id => dungeon.rooms[id].type === 'exit');
+        if (allCleared && exitRoom && dungeon.rooms[exitRoom].isCleared) {
+            // Можно перейти на следующий этаж
+            // Показываем кнопку перехода в комнате (уже есть)
+        }
+    }
+    
+    updateUI(data, myPlayerId, isMyTurn);
+    checkAndStartCombat(data, myPlayerId);
+}
+
+// ============================================================
+// 4. ИНИЦИАЛИЗАЦИЯ ИГРЫ (запуск подземелья)
 // ============================================================
 
 async function initializeGame(gameId) {
@@ -227,11 +305,10 @@ async function initializeGame(gameId) {
     if (!data.dungeon) {
         const totalFloors = 5;
         const dungeon = generateDungeon(totalFloors);
-        
-        // УДАЛЯЕМ map, потому что это вложенный массив (Firestore не поддерживает)
+        // Удаляем map, если он есть
         delete dungeon.map;
         
-        const firstRoom = Object.keys(dungeon.rooms)[0];
+        const firstRoom = Object.keys(dungeon.rooms).find(id => dungeon.rooms[id].floor === 1) || Object.keys(dungeon.rooms)[0];
         
         const updates = {
             dungeon: dungeon,
@@ -260,6 +337,7 @@ async function initializeGame(gameId) {
         await updateGameState(gameId, updates);
     }
     
+    // Переключаем экраны
     document.getElementById('lobby-screen').style.display = 'none';
     document.getElementById('game-screen').style.display = 'flex';
     
@@ -267,51 +345,15 @@ async function initializeGame(gameId) {
 }
 
 // ============================================================
-// 4. ОБРАБОТКА ОБНОВЛЕНИЙ
-// ============================================================
-
-function handleGameUpdate(data) {
-    if (!data) {
-        console.warn('⚠️ Нет данных игры');
-        return;
-    }
-    
-    if (!data.logs) data.logs = [];
-    if (!data.chat) data.chat = [];
-    if (!data.pings) data.pings = [];
-    
-    gameState = data;
-    
-    const user = getCurrentUser();
-    let myPlayerId = null;
-    if (data.players?.player1?.uid === user?.uid) myPlayerId = 'player1';
-    else if (data.players?.player2?.uid === user?.uid) myPlayerId = 'player2';
-    
-    if (!myPlayerId) {
-        console.warn('⚠️ Игрок не найден');
-        return;
-    }
-    
-    currentPlayerId = myPlayerId;
-    isMyTurn = data.turn?.currentPlayer === myPlayerId;
-    
-    if (data.status === 'finished') {
-        alert('🎉 Подземелье пройдено!');
-    }
-    
-    updateUI(data, myPlayerId, isMyTurn);
-    checkAndStartCombat(data, myPlayerId);
-}
-
-// ============================================================
 // 5. НАСТРОЙКА UI
 // ============================================================
 
 function setupGameUI() {
+    // Кнопка броска
     document.getElementById('btn-roll').addEventListener('click', function() {
         if (!isMyTurn) { alert('⏳ Сейчас не ваш ход!'); return; }
         const room = getRoom(gameState.dungeon, gameState.players[currentPlayerId]?.position);
-        if (!room || room.isCleared || room.type === 'rest' || room.type === 'shop') {
+        if (!room || room.isCleared || room.type === 'rest' || room.type === 'shop' || room.type === 'exit') {
             alert('⏳ Здесь нельзя бросить кубики');
             return;
         }
@@ -342,7 +384,7 @@ function setupGameUI() {
 }
 
 // ============================================================
-// 6. БРОСОК КУБИКОВ
+// 6. БРОСОК КУБИКОВ (С ИСПОЛЬЗОВАНИЕМ 3D)
 // ============================================================
 
 function handleRollDice() {
@@ -354,42 +396,41 @@ function handleRollDice() {
     }
     
     const count = 2;
-    diceValues = [];
+    const values = [];
     for (let i = 0; i < count; i++) {
-        diceValues.push(Math.floor(Math.random() * 6) + 1);
+        values.push(Math.floor(Math.random() * 6) + 1);
     }
     
-    console.log('🎲 Выпало:', diceValues);
+    console.log('🎲 Выпало:', values);
     
-    const combo = checkCombo(player.class, diceValues);
-    
-    gameState.turn.diceValues = diceValues;
-    gameState.turn.phase = 'distribute';
-    gameState.turn.combo = combo;
-    
-    updateGameState(currentGameId, { turn: gameState.turn });
-    
-    window.currentDiceValues = diceValues;
+    // Сохраняем значения для последующего распределения
+    window.currentDiceValues = values;
     window.diceSelections = {};
     
-    if (combo) {
-        showDiceModal(diceValues, combo.name, combo.description);
-        if (combo.target === 'self' || combo.target === 'all_allies' || combo.target === 'all_enemies') {
-            setTimeout(() => {
-                applyCombo(currentPlayerId, combo);
-                closeDiceModal();
-                nextTurn();
-            }, 2500);
+    // Запускаем 3D анимацию
+    rollDiceWithValues(values, (rolledValues) => {
+        // После завершения анимации показываем результат и распределение
+        const combo = checkCombo(player.class, rolledValues);
+        if (combo) {
+            showDiceModal(rolledValues, combo.name, combo.description);
+            if (combo.target === 'self' || combo.target === 'all_allies' || combo.target === 'all_enemies') {
+                setTimeout(() => {
+                    applyCombo(currentPlayerId, combo);
+                    closeDiceModal();
+                    nextTurn();
+                }, 2500);
+            } else {
+                gameState.turn.phase = 'select_target';
+                updateGameState(currentGameId, { turn: gameState.turn });
+                updateUI(gameState, currentPlayerId, isMyTurn);
+            }
         } else {
-            gameState.turn.phase = 'select_target';
-            updateGameState(currentGameId, { turn: gameState.turn });
-            updateUI(gameState, currentPlayerId, isMyTurn);
+            showDiceModal(rolledValues, null, null);
         }
-    } else {
-        showDiceModal(diceValues, null, null);
-    }
+    });
 }
 
+// ----- ПРОВЕРКА КОМБИНАЦИЙ (без изменений) -----
 function checkCombo(className, diceValues) {
     const combos = COMBOS[className];
     if (!combos) return null;
@@ -405,6 +446,7 @@ function checkCombo(className, diceValues) {
     return null;
 }
 
+// ----- ПРИМЕНЕНИЕ КОМБИНАЦИИ (без изменений) -----
 function applyCombo(playerId, combo) {
     const player = gameState.players[playerId];
     if (!player) return;
@@ -512,6 +554,7 @@ function applyCombo(playerId, combo) {
     });
 }
 
+// ----- ПОДТВЕРЖДЕНИЕ РАСПРЕДЕЛЕНИЯ (без изменений) -----
 window.confirmDiceDistribution = function(attackSum, defenseSum, selections) {
     const player = gameState.players[currentPlayerId];
     if (!player) return;
@@ -556,7 +599,7 @@ window.confirmDiceDistribution = function(attackSum, defenseSum, selections) {
 };
 
 // ============================================================
-// 7. ХОДЫ
+// 7. ХОДЫ (С ПРОВЕРКОЙ ЗАВЕРШЕНИЯ ЭТАЖА)
 // ============================================================
 
 function nextTurn() {
@@ -565,7 +608,8 @@ function nextTurn() {
     const player = gameState.players[currentPlayerId];
     const room = getRoom(gameState.dungeon, player?.position);
     
-    if (!room || room.isCleared || room.type === 'rest' || room.type === 'shop') {
+    // Если комната зачищена и это выход, или комната отдыха/магазин – переключаем ход
+    if (!room || room.isCleared || room.type === 'rest' || room.type === 'shop' || room.type === 'exit') {
         const order = ['player1', 'player2'];
         const currentIdx = gameState.turn.index || 0;
         const nextIdx = (currentIdx + 1) % order.length;
@@ -583,12 +627,33 @@ function nextTurn() {
         return;
     }
     
+    // Проверяем, все ли враги мертвы
     const hasAlive = room.enemies?.some(e => e.isAlive);
     if (!hasAlive) {
         room.isCleared = true;
+        room.isRevealed = true;
         addLog(`✅ Комната зачищена!`);
         updateGameState(currentGameId, { dungeon: gameState.dungeon });
         
+        // Проверяем, зачищен ли весь этаж
+        const dungeon = gameState.dungeon;
+        const currentFloor = dungeon.currentFloor || 1;
+        const floorRooms = getCurrentFloorRooms(dungeon);
+        const allCleared = floorRooms.every(id => {
+            const r = dungeon.rooms[id];
+            return r.isCleared || r.type === 'exit';
+        });
+        if (allCleared) {
+            // Находим выход
+            const exitRoom = floorRooms.find(id => dungeon.rooms[id].type === 'exit');
+            if (exitRoom) {
+                dungeon.rooms[exitRoom].isCleared = true;
+                dungeon.rooms[exitRoom].isRevealed = true;
+                addLog(`🚪 Выход на следующий этаж открыт!`);
+            }
+        }
+        
+        // Переключение хода
         const order = ['player1', 'player2'];
         const currentIdx = gameState.turn.index || 0;
         const nextIdx = (currentIdx + 1) % order.length;
@@ -597,10 +662,11 @@ function nextTurn() {
         gameState.turn.currentPlayer = nextPlayer;
         gameState.turn.index = nextIdx;
         gameState.turn.phase = 'idle';
-        updateGameState(currentGameId, { turn: gameState.turn });
+        updateGameState(currentGameId, { dungeon: gameState.dungeon, turn: gameState.turn });
         return;
     }
     
+    // Обычное переключение хода
     const order = ['player1', 'player2'];
     const currentIdx = gameState.turn.index || 0;
     const nextIdx = (currentIdx + 1) % order.length;
@@ -627,7 +693,7 @@ function nextTurn() {
 }
 
 // ============================================================
-// 8. НАЧАЛО БОЯ
+// 8. НАЧАЛО БОЯ (без изменений)
 // ============================================================
 
 function checkAndStartCombat(data, myPlayerId) {
@@ -639,6 +705,7 @@ function checkAndStartCombat(data, myPlayerId) {
     const hasAlive = room.enemies?.some(e => e.isAlive);
     if (!hasAlive) {
         room.isCleared = true;
+        room.isRevealed = true;
         updateGameState(currentGameId, { dungeon: data.dungeon });
         return;
     }
@@ -654,7 +721,64 @@ function checkAndStartCombat(data, myPlayerId) {
 }
 
 // ============================================================
-// 9. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+// 9. ПЕРЕХОД НА СЛЕДУЮЩИЙ ЭТАЖ
+// ============================================================
+
+window.goToNextFloorAction = function() {
+    if (!gameState || !currentPlayerId) return;
+    const dungeon = gameState.dungeon;
+    const currentFloor = dungeon.currentFloor || 1;
+    
+    // Проверяем, все ли комнаты этажа зачищены
+    const floorRooms = getCurrentFloorRooms(dungeon);
+    const allCleared = floorRooms.every(id => {
+        const r = dungeon.rooms[id];
+        return r.isCleared || r.type === 'exit';
+    });
+    
+    if (!allCleared) {
+        alert('❌ Сначала зачистите все комнаты этажа!');
+        return;
+    }
+    
+    // Проверяем, есть ли выход
+    const exitRoom = floorRooms.find(id => dungeon.rooms[id].type === 'exit');
+    if (!exitRoom || !dungeon.rooms[exitRoom].isCleared) {
+        alert('❌ Выход ещё не открыт!');
+        return;
+    }
+    
+    // Переходим на следующий этаж
+    if (dungeon.currentFloor < dungeon.totalFloors) {
+        dungeon.currentFloor++;
+        // Перемещаем игроков в первую комнату нового этажа
+        const newFloorRooms = Object.keys(dungeon.rooms).filter(id => dungeon.rooms[id].floor === dungeon.currentFloor);
+        if (newFloorRooms.length > 0) {
+            const firstRoom = newFloorRooms[0];
+            // Обновляем позиции всех живых игроков
+            Object.keys(gameState.players).forEach(id => {
+                const p = gameState.players[id];
+                if (p && p.isAlive) {
+                    p.position = firstRoom;
+                }
+            });
+            addLog(`🚪 Переход на этаж ${dungeon.currentFloor}`);
+            updateGameState(currentGameId, {
+                dungeon: gameState.dungeon,
+                players: gameState.players
+            });
+            // Обновляем UI
+            updateUI(gameState, currentPlayerId, isMyTurn);
+        }
+    } else {
+        alert('🎉 Вы прошли все этажи! Поздравляем!');
+        gameState.status = 'finished';
+        updateGameState(currentGameId, { status: 'finished' });
+    }
+};
+
+// ============================================================
+// 10. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (без изменений)
 // ============================================================
 
 function addLog(text) {
@@ -686,7 +810,19 @@ window.selectRoom = function(roomId) {
     
     const targetRoom = getRoom(gameState.dungeon, roomId);
     if (!targetRoom) return;
+    // Проверяем, что комната на текущем этаже
+    const dungeon = gameState.dungeon;
+    if (targetRoom.floor !== (dungeon.currentFloor || 1)) {
+        alert('🔒 Эта комната на другом этаже!');
+        return;
+    }
+    // Можно войти только в открытую комнату
+    if (!targetRoom.isRevealed && roomId !== player.position) {
+        alert('🔒 Комната ещё не открыта!');
+        return;
+    }
     
+    // Обновляем позицию
     player.position = roomId;
     if (!targetRoom.players) targetRoom.players = [];
     if (!targetRoom.players.includes(currentPlayerId)) {
@@ -812,7 +948,10 @@ window.restHealAction = function() {
     const healAmount = Math.floor(player.maxHp * 0.5);
     player.hp = Math.min(player.hp + healAmount, player.maxHp);
     const room = getRoom(gameState.dungeon, player.position);
-    if (room) room.isCleared = true;
+    if (room) {
+        room.isCleared = true;
+        room.isRevealed = true;
+    }
     
     addLog(`🏥 ${player.name} отдохнул и восстановил ${healAmount} HP`);
     updateGameState(currentGameId, {
@@ -824,7 +963,7 @@ window.restHealAction = function() {
 };
 
 // ============================================================
-// 10. ИНВЕНТАРЬ И КАРТА
+// 11. ИНВЕНТАРЬ И КАРТА (без изменений)
 // ============================================================
 
 function showInventoryModal() {
@@ -902,13 +1041,15 @@ function showMapModal() {
         return;
     }
     
-    const roomIds = Object.keys(dungeon.rooms);
+    const currentFloor = dungeon.currentFloor || 1;
+    const roomIds = Object.keys(dungeon.rooms).filter(id => dungeon.rooms[id].floor === currentFloor);
+    
     let html = `
         <button class="modal-close" onclick="window.closeModal()">✕</button>
-        <div class="modal-title">🗺️ Карта подземелья</div>
+        <div class="modal-title">🗺️ Этаж ${currentFloor}</div>
         <div class="modal-body">
             <div style="color:#888; font-size:13px; margin-bottom:8px;">
-                Этаж ${dungeon.floor}/${dungeon.totalFloors}
+                Этаж ${currentFloor}/${dungeon.totalFloors}
             </div>
             <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(70px, 1fr)); gap:6px;">
     `;
@@ -917,13 +1058,18 @@ function showMapModal() {
         const room = dungeon.rooms[roomId];
         const isCurrent = roomId === gameState.players[currentPlayerId]?.position;
         const isCleared = room.isCleared;
+        const isRevealed = room.isRevealed || isCurrent;
         
-        let icon = '🏚️';
-        if (room.type === 'combat') icon = '💀';
-        else if (room.type === 'chest') icon = '💎';
-        else if (room.type === 'rest') icon = '🏥';
-        else if (room.type === 'shop') icon = '🏪';
-        else if (room.type === 'boss') icon = '👑';
+        let icon = '❓';
+        if (isRevealed) {
+            if (room.type === 'combat') icon = '💀';
+            else if (room.type === 'chest') icon = '💎';
+            else if (room.type === 'rest') icon = '🏥';
+            else if (room.type === 'shop') icon = '🏪';
+            else if (room.type === 'boss') icon = '👑';
+            else if (room.type === 'exit') icon = '🚪';
+            else icon = '🏚️';
+        }
         
         const playersInRoom = room.players || [];
         const playerIcons = playersInRoom.map(id => {
@@ -932,11 +1078,12 @@ function showMapModal() {
         }).join('');
         
         html += `
-            <div style="padding:10px 4px; border-radius:8px; background:${isCurrent ? '#2a2f45' : '#1e2337'}; border:2px solid ${isCurrent ? '#f0c040' : '#2a2f45'}; text-align:center; ${isCleared ? 'opacity:0.5;' : ''} cursor:pointer;" onclick="window.closeModal(); window.selectRoom('${roomId}');">
+            <div style="padding:10px 4px; border-radius:8px; background:${isCurrent ? '#2a2f45' : '#1e2337'}; border:2px solid ${isCurrent ? '#f0c040' : '#2a2f45'}; text-align:center; ${isCleared ? 'opacity:0.5;' : ''} cursor:${isRevealed ? 'pointer' : 'default'};" onclick="${isRevealed ? `window.closeModal(); window.selectRoom('${roomId}');` : ''}">
                 <div style="font-size:22px;">${icon}</div>
                 <div style="font-size:9px; color:#888;">${roomId.replace('floor','F').replace('_room','R')}</div>
                 ${playerIcons ? `<div style="font-size:12px;">${playerIcons}</div>` : ''}
                 ${isCurrent ? '<div style="font-size:9px; color:#f0c040;">📍</div>' : ''}
+                ${isCleared ? '<div style="font-size:9px; color:#4caf50;">✅</div>' : ''}
             </div>
         `;
     });
@@ -951,7 +1098,7 @@ function showMapModal() {
 }
 
 // ============================================================
-// 11. ГЛОБАЛЬНЫЕ ФУНКЦИИ
+// 12. ГЛОБАЛЬНЫЕ ФУНКЦИИ
 // ============================================================
 
 window.closeModal = closeModal;
@@ -962,5 +1109,6 @@ window.openChestAction = openChestAction;
 window.buyShopAction = buyShopAction;
 window.restHealAction = restHealAction;
 window.confirmDiceDistribution = confirmDiceDistribution;
+window.goToNextFloorAction = goToNextFloorAction;
 
 console.log('🎲 LEGENDICE - main.js загружен!');
