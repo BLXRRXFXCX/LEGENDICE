@@ -232,6 +232,7 @@ body {
 .minimap-room.boss { border-color: #ff6b6b; box-shadow: 0 0 15px rgba(255,0,0,0.3); }
 .minimap-room.current { border-color: #f0c040; box-shadow: 0 0 10px rgba(240,192,64,0.3); }
 .minimap-room.cleared { opacity: 0.4; }
+.minimap-room.hidden-room { opacity: 0.5; }
 
 /* Просмотр комнаты */
 #room-view {
