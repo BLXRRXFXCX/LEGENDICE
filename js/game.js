@@ -11,14 +11,14 @@ export function generateDungeon(totalFloors) {
         floor: 1,
         totalFloors: totalFloors || 5,
         rooms: {},
-        map: [],
-        bossDefeated: false
+        // map удалён для совместимости с Firestore
+        bossDefeated: false,
+        currentFloor: 1
     };
     
     for (let floor = 1; floor <= totalFloors; floor++) {
         const floorData = generateFloor(floor, totalFloors);
         dungeon.rooms = { ...dungeon.rooms, ...floorData.rooms };
-        dungeon.map.push(floorData.map);
     }
     
     return dungeon;
@@ -26,23 +26,32 @@ export function generateDungeon(totalFloors) {
 
 // ----- ГЕНЕРАЦИЯ ОДНОГО ЭТАЖА -----
 function generateFloor(floorNum, totalFloors) {
-    const numRooms = Math.floor(Math.random() * 3) + 3;
+    const numRooms = Math.floor(Math.random() * 3) + 3; // 3-5 комнат
     const rooms = {};
-    const map = [];
     
     const isBossFloor = floorNum === totalFloors;
+    // Всегда добавляем комнаты боя, сундуки, отдых, магазин
     const roomTypes = ['combat', 'combat', 'chest', 'rest', 'shop'];
     if (isBossFloor) roomTypes.push('boss');
     
-    for (let i = 0; i < numRooms; i++) {
+    // Добавляем выход (exit) в конце этажа, кроме последнего босса
+    if (!isBossFloor) {
+        roomTypes.push('exit');
+    }
+    
+    // Перемешиваем типы, чтобы выход не всегда был последним
+    shuffleArray(roomTypes);
+    
+    for (let i = 0; i < roomTypes.length; i++) {
         const roomId = `floor${floorNum}_room${i+1}`;
-        const type = roomTypes[i % roomTypes.length] || 'combat';
+        const type = roomTypes[i] || 'combat';
         
         rooms[roomId] = {
             id: roomId,
             type: type,
             floor: floorNum,
             isCleared: false,
+            isRevealed: false,   // Новая опция: показана ли комната игрокам
             players: [],
             enemies: [],
             chests: [],
@@ -63,16 +72,27 @@ function generateFloor(floorNum, totalFloors) {
             rooms[roomId].shopItems = generateShopItems(floorNum);
         }
         
-        map.push(roomId);
+        // Выход не требует врагов или предметов
+        if (type === 'exit') {
+            rooms[roomId].isCleared = true; // доступен сразу
+        }
     }
     
-    return { rooms, map };
+    return { rooms };
 }
 
-// ----- ГЕНЕРАЦИЯ ВРАГОВ -----
+// ----- ВСПОМОГАТЕЛЬНАЯ: ПЕРЕМЕШИВАНИЕ МАССИВА -----
+function shuffleArray(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
+// ----- ГЕНЕРАЦИЯ ВРАГОВ (без изменений) -----
 function generateEnemies(count, floor, isBoss) {
     const enemies = [];
-    
     if (isBoss) {
         const boss = { ...BOSS };
         boss.hp = Math.floor(boss.hp * (1 + (floor - 1) * 0.2));
@@ -95,11 +115,10 @@ function generateEnemies(count, floor, isBoss) {
         enemy.id = `${enemy.id}_${Date.now()}_${i}`;
         enemies.push(enemy);
     }
-    
     return enemies;
 }
 
-// ----- ГЕНЕРАЦИЯ СУНДУКОВ -----
+// ----- ГЕНЕРАЦИЯ СУНДУКОВ (без изменений) -----
 function generateChests(count, floor) {
     const chests = [];
     const rarityChance = { common: 40, uncommon: 25, rare: 18, epic: 10, legendary: 6, familiar: 1 };
@@ -113,7 +132,6 @@ function generateChests(count, floor) {
             if (roll < cumulative) { rarity = key; break; }
         }
         
-        // Выбираем случайный предмет
         const itemKeys = Object.keys(ITEMS);
         const itemKey = itemKeys[Math.floor(Math.random() * itemKeys.length)];
         const item = { ...ITEMS[itemKey] };
@@ -126,11 +144,10 @@ function generateChests(count, floor) {
             item: item
         });
     }
-    
     return chests;
 }
 
-// ----- ГЕНЕРАЦИЯ ТОВАРОВ В МАГАЗИНЕ -----
+// ----- ГЕНЕРАЦИЯ ТОВАРОВ В МАГАЗИНЕ (без изменений) -----
 function generateShopItems(floor) {
     const items = [
         { name: 'Зелье здоровья', emoji: '🩸', price: 10, effect: { heal: 5 } },
@@ -147,7 +164,6 @@ function generateShopItems(floor) {
         item.price = Math.floor(item.price * (1 + (floor - 1) * 0.1));
         shopItems.push(item);
     }
-    
     return shopItems;
 }
 
@@ -156,20 +172,31 @@ export function getRoom(dungeon, roomId) {
     return dungeon?.rooms?.[roomId] || null;
 }
 
-// ----- ПОЛУЧИТЬ ТЕКУЩУЮ КОМНАТУ ИГРОКА -----
-export function getPlayerRoom(dungeon, player) {
-    if (!player || !player.position) return null;
-    return getRoom(dungeon, player.position);
+// ----- ПОЛУЧИТЬ КОМНАТЫ ТЕКУЩЕГО ЭТАЖА -----
+export function getCurrentFloorRooms(dungeon) {
+    if (!dungeon || !dungeon.rooms) return [];
+    const floor = dungeon.currentFloor || 1;
+    const roomIds = Object.keys(dungeon.rooms);
+    return roomIds.filter(id => dungeon.rooms[id].floor === floor);
 }
 
-// ----- ПРОВЕРИТЬ, ЗАЧИЩЕНА ЛИ КОМНАТА -----
-export function isRoomCleared(room) {
-    if (!room) return false;
-    if (room.type === 'rest' || room.type === 'shop') return true;
-    if (room.enemies) {
-        return room.enemies.every(enemy => !enemy.isAlive);
+// ----- ПРОВЕРИТЬ, ЗАЧИЩЕН ЛИ ЭТАЖ -----
+export function isFloorCleared(dungeon) {
+    const rooms = getCurrentFloorRooms(dungeon);
+    // Все комнаты должны быть зачищены или быть выходом
+    return rooms.every(roomId => {
+        const room = dungeon.rooms[roomId];
+        return room.isCleared || room.type === 'exit';
+    });
+}
+
+// ----- ПЕРЕЙТИ НА СЛЕДУЮЩИЙ ЭТАЖ -----
+export function goToNextFloor(dungeon) {
+    if (dungeon.currentFloor < dungeon.totalFloors) {
+        dungeon.currentFloor++;
+        return true;
     }
-    return room.isCleared;
+    return false;
 }
 
 // ----- ОБНОВИТЬ КОМНАТУ ПОСЛЕ БОЯ -----
@@ -177,16 +204,17 @@ export function updateRoomAfterCombat(room) {
     if (!room) return;
     if (room.enemies) {
         const allDead = room.enemies.every(enemy => !enemy.isAlive);
-        if (allDead) room.isCleared = true;
+        if (allDead) {
+            room.isCleared = true;
+            room.isRevealed = true;
+        }
     }
 }
 
-// ----- ОТКРЫТЬ СУНДУК -----
+// ----- ОТКРЫТЬ СУНДУК (без изменений) -----
 export function openChest(chest, player) {
     if (chest.isOpened) return null;
     chest.isOpened = true;
-    
-    // Добавляем предмет в инвентарь игрока
     if (chest.item) {
         if (!player.inventory) player.inventory = [];
         player.inventory.push(chest.item);
@@ -195,10 +223,8 @@ export function openChest(chest, player) {
     return null;
 }
 
-// ----- КУПИТЬ ТОВАР В МАГАЗИНЕ -----
+// ----- КУПИТЬ В МАГАЗИНЕ (без изменений) -----
 export function buyShopItem(shopItem, player) {
-    // Проверяем, есть ли у игрока золото (пока нет системы золота)
-    // Просто добавляем предмет
     if (!player.inventory) player.inventory = [];
     const item = {
         id: `shop_${Date.now()}`,
@@ -211,16 +237,12 @@ export function buyShopItem(shopItem, player) {
     return item;
 }
 
-// ----- ЭКСПОРТ -----
 export default {
     generateDungeon,
-    generateFloor,
-    generateEnemies,
-    generateChests,
-    generateShopItems,
     getRoom,
-    getPlayerRoom,
-    isRoomCleared,
+    getCurrentFloorRooms,
+    isFloorCleared,
+    goToNextFloor,
     updateRoomAfterCombat,
     openChest,
     buyShopItem
