@@ -8,6 +8,7 @@ let diceMeshes = [];
 let isRolling = false;
 let animationId = null;
 let rollCompleteCallback = null;
+let positions = [];
 
 // ----- ИНИЦИАЛИЗАЦИЯ 3D СЦЕНЫ -----
 export function initDice3D() {
@@ -78,24 +79,26 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-// ----- БРОСОК КУБИКОВ -----
-let positions = []; // <-- ОБЪЯВЛЯЕМ ГЛОБАЛЬНО
-
+// ----- БРОСОК КУБИКОВ (ГЕНЕРИРУЕТ ЗНАЧЕНИЯ) -----
 export function rollDice(count = 2, callback = null) {
+    const values = [];
+    for (let i = 0; i < count; i++) {
+        values.push(Math.floor(Math.random() * 6) + 1);
+    }
+    rollDiceWithValues(values, callback);
+}
+
+// ----- БРОСОК КУБИКОВ С ЗАДАННЫМИ ЗНАЧЕНИЯМИ -----
+export function rollDiceWithValues(values, callback = null) {
     if (isRolling) return;
     isRolling = true;
     rollCompleteCallback = callback;
     
     clearDice();
     
+    const count = values.length;
     const spacing = 1.2;
     const totalWidth = (count - 1) * spacing;
-    const values = [];
-    for (let i = 0; i < count; i++) {
-        values.push(Math.floor(Math.random() * 6) + 1);
-    }
-    
-    // ОБЪЯВЛЯЕМ positions ЗДЕСЬ (локально)
     const positions = [];
     for (let i = 0; i < count; i++) {
         const x = (count > 1) ? (i / (count - 1)) * totalWidth - totalWidth / 2 : 0;
@@ -250,5 +253,6 @@ export function closeDiceModal() {
 export default {
     initDice3D,
     rollDice,
+    rollDiceWithValues,
     closeDiceModal
 };
