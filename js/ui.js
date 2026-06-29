@@ -4,7 +4,7 @@
 // ============================================================
 
 import { CLASSES, SLOT_TYPES, RARITY, ENEMIES, BOSS, COMBOS, COMBO_EMOJI } from './constants.js';
-import { getRoom, isRoomCleared } from './game.js';
+import { getRoom, getCurrentFloorRooms, isFloorCleared, goToNextFloor } from './game.js';
 
 let currentRoomId = null;
 let selectedEnemy = null;
@@ -96,6 +96,7 @@ function updateTurnIndicator(gameData, myPlayerId, isMyTurn) {
     indicator.style.color = isMyTurn ? '#ffd700' : '#888';
 }
 
+// ----- МИНИ-КАРТА -----
 function updateMinimap(gameData, myPlayerId) {
     const container = document.getElementById('minimap');
     const dungeon = gameData.dungeon;
@@ -183,6 +184,182 @@ function updateMinimap(gameData, myPlayerId) {
             }
         });
     });
+}
+
+// ----- ОТОБРАЖЕНИЕ ТЕКУЩЕЙ КОМНАТЫ (ДОБАВЛЕНА) -----
+function updateRoomView(gameData, myPlayerId, isMyTurn) {
+    const container = document.getElementById('room-view');
+    const myPos = gameData.players?.[myPlayerId]?.position;
+    
+    if (!myPos) {
+        container.innerHTML = '<div style="color:#666; text-align:center; padding:40px;">🏚️ Выберите комнату на карте</div>';
+        return;
+    }
+    
+    const room = getRoom(gameData.dungeon, myPos);
+    if (!room) {
+        container.innerHTML = '<div style="color:#666; text-align:center; padding:40px;">❌ Комната не найдена</div>';
+        return;
+    }
+    
+    currentRoomId = myPos;
+    
+    // Отмечаем комнату как открытую
+    if (!room.isRevealed) {
+        room.isRevealed = true;
+    }
+    
+    let title = '🏚️ Комната';
+    let bgColor = '';
+    if (room.type === 'combat') { title = '💀 Бой!'; bgColor = 'rgba(220,53,69,0.1)'; }
+    else if (room.type === 'chest') { title = '💎 Сундук'; bgColor = 'rgba(255,193,7,0.1)'; }
+    else if (room.type === 'rest') { title = '🏥 Отдых'; bgColor = 'rgba(40,167,69,0.1)'; }
+    else if (room.type === 'shop') { title = '🏪 Торговец'; bgColor = 'rgba(23,162,184,0.1)'; }
+    else if (room.type === 'boss') { title = '👑 БОСС!'; bgColor = 'rgba(255,0,0,0.2)'; }
+    else if (room.type === 'exit') { title = '🚪 Выход на следующий этаж'; bgColor = 'rgba(0,123,255,0.2)'; }
+    
+    // Враги
+    let enemiesHtml = '';
+    if (room.enemies && room.enemies.length > 0) {
+        enemiesHtml = `<div class="enemy-list">`;
+        room.enemies.forEach((enemy, index) => {
+            const isDead = !enemy.isAlive;
+            const isTargetable = isMyTurn && enemy.isAlive && !isDead && room.type !== 'rest' && room.type !== 'shop' && room.type !== 'exit';
+            
+            enemiesHtml += `
+                <div class="enemy-card ${isDead ? 'enemy-dead' : ''} ${isTargetable ? 'targetable' : ''}" 
+                     data-enemy-index="${index}" style="${isTargetable ? 'cursor:pointer;' : ''}">
+                    <div class="enemy-emoji">${enemy.emoji || '👾'}</div>
+                    <div class="enemy-name">${enemy.name || 'Враг'}</div>
+                    <div class="enemy-hp">❤️ ${enemy.hp || 0}/${enemy.maxHp || 0}</div>
+                    ${enemy.poison ? `<div style="color:#7cfc00;font-size:11px;">☠️ Отравлен</div>` : ''}
+                    ${enemy.freeze ? `<div style="color:#00bfff;font-size:11px;">❄️ Заморожен</div>` : ''}
+                </div>
+            `;
+        });
+        enemiesHtml += `</div>`;
+    } else if (room.type === 'combat' || room.type === 'boss') {
+        enemiesHtml = `<div style="color:#4caf50;">✅ Все враги повержены!</div>`;
+    }
+    
+    // Сундуки
+    let chestsHtml = '';
+    if (room.chests && room.chests.length > 0) {
+        chestsHtml = `<div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; justify-content:center;">`;
+        room.chests.forEach((chest, index) => {
+            const isOpened = chest.isOpened || false;
+            const rarityInfo = RARITY[chest.rarity] || { color: '#888' };
+            chestsHtml += `
+                <div class="enemy-card" data-chest-index="${index}" style="min-width:60px; cursor:${isOpened ? 'default' : 'pointer'}; border-color:${isOpened ? '#2a2f45' : rarityInfo.color};">
+                    <div style="font-size:32px;">${isOpened ? '📭' : '📦'}</div>
+                    <div style="font-size:11px;color:${rarityInfo.color};">${RARITY[chest.rarity]?.label || ''}</div>
+                    ${isOpened ? '<div style="color:#888;font-size:10px;">✅ Открыт</div>' : ''}
+                </div>
+            `;
+        });
+        chestsHtml += `</div>`;
+    }
+    
+    // Магазин
+    let shopHtml = '';
+    if (room.type === 'shop' && room.shopItems && room.shopItems.length > 0) {
+        shopHtml = `<div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; justify-content:center;">`;
+        room.shopItems.forEach((item, index) => {
+            shopHtml += `
+                <div class="enemy-card" data-shop-index="${index}" style="cursor:pointer; min-width:70px; border-color:#17a2b8;">
+                    <div style="font-size:28px;">${item.emoji || '📦'}</div>
+                    <div style="font-size:12px;color:#ddd;">${item.name}</div>
+                    <div style="font-size:12px;color:#ffd700;">💰 ${item.price}</div>
+                </div>
+            `;
+        });
+        shopHtml += `</div>`;
+    }
+    
+    // Отдых
+    let restHtml = '';
+    if (room.type === 'rest' && !room.isCleared) {
+        restHtml = `
+            <button class="btn-success" id="btn-rest-heal" style="padding:12px 30px; border-radius:10px; border:none; font-weight:bold; cursor:pointer;">
+                🏥 Отдохнуть (+50% HP)
+            </button>
+        `;
+    }
+    
+    // Выход на следующий этаж
+    let exitHtml = '';
+    if (room.type === 'exit' && room.isCleared) {
+        // Проверяем, все ли комнаты этажа зачищены
+        const dungeon = gameData.dungeon;
+        const currentFloor = dungeon.currentFloor || 1;
+        const floorRooms = getCurrentFloorRooms(dungeon);
+        const allCleared = floorRooms.every(id => {
+            const r = dungeon.rooms[id];
+            return r.isCleared || r.type === 'exit';
+        });
+        const canGo = allCleared;
+        exitHtml = `
+            <button class="btn-primary" id="btn-next-floor" style="padding:12px 30px; border-radius:10px; border:none; font-weight:bold; cursor:pointer; ${!canGo ? 'opacity:0.5; pointer-events:none;' : ''}">
+                🚪 Перейти на следующий этаж
+            </button>
+            ${!canGo ? '<div style="color:#ff6b6b; font-size:12px;">❌ Сначала зачистите все комнаты этажа!</div>' : ''}
+        `;
+    }
+    
+    container.innerHTML = `
+        <div class="room-title" style="background:${bgColor}; padding:8px 20px; border-radius:10px; width:100%; text-align:center;">${title}</div>
+        ${enemiesHtml}
+        ${chestsHtml}
+        ${shopHtml}
+        ${restHtml}
+        ${exitHtml}
+        <div style="color:#666; font-size:12px; margin-top:8px;">
+            ${room.isCleared ? '✅ Комната зачищена' : ''}
+            ${room.type === 'exit' && room.isCleared ? '🚪 Выход открыт' : ''}
+        </div>
+    `;
+    
+    // Обработчики
+    container.querySelectorAll('.enemy-card.targetable').forEach(el => {
+        el.addEventListener('click', () => {
+            const index = parseInt(el.dataset.enemyIndex);
+            if (!isNaN(index) && isMyTurn) {
+                window.selectEnemyTarget?.(index);
+            }
+        });
+    });
+    
+    container.querySelectorAll('[data-chest-index]').forEach(el => {
+        el.addEventListener('click', () => {
+            const index = parseInt(el.dataset.chestIndex);
+            if (!isNaN(index) && room.chests && !room.chests[index]?.isOpened) {
+                window.openChestAction?.(index);
+            }
+        });
+    });
+    
+    container.querySelectorAll('[data-shop-index]').forEach(el => {
+        el.addEventListener('click', () => {
+            const index = parseInt(el.dataset.shopIndex);
+            if (!isNaN(index) && room.shopItems) {
+                window.buyShopAction?.(index);
+            }
+        });
+    });
+    
+    const restBtn = document.getElementById('btn-rest-heal');
+    if (restBtn) {
+        restBtn.addEventListener('click', () => {
+            window.restHealAction?.();
+        });
+    }
+    
+    const nextBtn = document.getElementById('btn-next-floor');
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            window.goToNextFloorAction?.();
+        });
+    }
 }
 
 // ----- СЛОТЫ -----
