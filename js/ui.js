@@ -1,14 +1,11 @@
 // ============================================================
-// LEGENDICE - ui.js
-// Управление интерфейсом: отрисовка, обновление, события
+// LEGENDICE - ui.js (ПОЛНАЯ ВЕРСИЯ С updateRoomView)
 // ============================================================
 
-import { CLASSES, SLOT_TYPES, RARITY, ENEMIES, BOSS, COMBOS, COMBO_EMOJI } from './constants.js';
-import { getRoom, getCurrentFloorRooms, isFloorCleared, goToNextFloor } from './game.js';
+import { CLASSES, SLOT_TYPES, RARITY } from './constants.js';
+import { getRoom, getCurrentFloorRooms, isFloorCleared, goToNextFloor, updateRoomAfterCombat } from './game.js';
 
 let currentRoomId = null;
-let selectedEnemy = null;
-let selectedAlly = null;
 
 // ----- ИНИЦИАЛИЗАЦИЯ UI -----
 export function initUI() {
@@ -33,7 +30,7 @@ export function updateUI(gameData, myPlayerId, isMyTurn) {
     
     updateTopBar(gameData, myPlayerId, isMyTurn);
     updateMinimap(gameData, myPlayerId);
-    updateRoomView(gameData, myPlayerId, isMyTurn);
+    updateRoomView(gameData, myPlayerId, isMyTurn);  // <-- теперь функция есть!
     updateSlots(gameData, myPlayerId);
     updateChat(gameData);
     updateTurnIndicator(gameData, myPlayerId, isMyTurn);
@@ -109,7 +106,6 @@ function updateMinimap(gameData, myPlayerId) {
     const currentFloor = dungeon.currentFloor || 1;
     const myPos = gameData.players?.[myPlayerId]?.position || '';
     const rooms = dungeon.rooms;
-    // Фильтруем комнаты только текущего этажа
     const floorRooms = Object.keys(rooms).filter(id => rooms[id].floor === currentFloor);
     
     if (floorRooms.length === 0) {
@@ -125,7 +121,6 @@ function updateMinimap(gameData, myPlayerId) {
         const isRevealed = room.isRevealed || false;
         const isExit = room.type === 'exit';
         
-        // Если комната не открыта и не текущая, показываем '?'
         let icon = '❓';
         let title = roomId;
         if (isRevealed || isCurrent) {
@@ -141,7 +136,6 @@ function updateMinimap(gameData, myPlayerId) {
             title = '❓ Скрытая комната';
         }
         
-        // Показываем, есть ли игроки в комнате (только если открыта)
         let playerIcons = '';
         if (isRevealed || isCurrent) {
             const playersInRoom = room.players || [];
@@ -169,14 +163,12 @@ function updateMinimap(gameData, myPlayerId) {
     
     container.innerHTML = html;
     
-    // Клик по комнате (только если она открыта или текущая)
     container.querySelectorAll('.minimap-room').forEach(el => {
         el.addEventListener('click', () => {
             const roomId = el.dataset.room;
             if (!roomId) return;
             const room = getRoom(dungeon, roomId);
             if (!room) return;
-            // Можно перейти только в открытую комнату или если она уже посещена
             if (room.isRevealed || roomId === myPos) {
                 window.selectRoom?.(roomId);
             } else {
@@ -186,7 +178,7 @@ function updateMinimap(gameData, myPlayerId) {
     });
 }
 
-// ----- ОТОБРАЖЕНИЕ ТЕКУЩЕЙ КОМНАТЫ (ДОБАВЛЕНА) -----
+// ----- ОТОБРАЖЕНИЕ ТЕКУЩЕЙ КОМНАТЫ (ВОССТАНОВЛЕНА) -----
 function updateRoomView(gameData, myPlayerId, isMyTurn) {
     const container = document.getElementById('room-view');
     const myPos = gameData.players?.[myPlayerId]?.position;
@@ -289,15 +281,8 @@ function updateRoomView(gameData, myPlayerId, isMyTurn) {
     // Выход на следующий этаж
     let exitHtml = '';
     if (room.type === 'exit' && room.isCleared) {
-        // Проверяем, все ли комнаты этажа зачищены
         const dungeon = gameData.dungeon;
-        const currentFloor = dungeon.currentFloor || 1;
-        const floorRooms = getCurrentFloorRooms(dungeon);
-        const allCleared = floorRooms.every(id => {
-            const r = dungeon.rooms[id];
-            return r.isCleared || r.type === 'exit';
-        });
-        const canGo = allCleared;
+        const canGo = isFloorCleared(dungeon);
         exitHtml = `
             <button class="btn-primary" id="btn-next-floor" style="padding:12px 30px; border-radius:10px; border:none; font-weight:bold; cursor:pointer; ${!canGo ? 'opacity:0.5; pointer-events:none;' : ''}">
                 🚪 Перейти на следующий этаж
@@ -362,7 +347,7 @@ function updateRoomView(gameData, myPlayerId, isMyTurn) {
     }
 }
 
-// ----- СЛОТЫ -----
+// ----- СЛОТЫ (без изменений) -----
 function updateSlots(gameData, myPlayerId) {
     const container = document.getElementById('slots-bar');
     const player = gameData.players?.[myPlayerId];
@@ -441,7 +426,7 @@ export function showItemInfo(item) {
     overlay.style.display = 'flex';
 }
 
-// ----- ЧАТ -----
+// ----- ЧАТ (без изменений) -----
 function updateChat(gameData) {
     const container = document.getElementById('chat-messages');
     const messages = gameData.chat || [];
@@ -485,7 +470,7 @@ export function closeModal() {
 
 window.closeModal = closeModal;
 
-// ----- ПОКАЗАТЬ МОДАЛКУ С КУБИКАМИ -----
+// ----- ПОКАЗАТЬ МОДАЛКУ С КУБИКАМИ (без изменений) -----
 export function showDiceModal(diceValues, comboName, comboEffect) {
     const container = document.getElementById('dice-container');
     const result = document.getElementById('dice-result');
