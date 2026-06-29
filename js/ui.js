@@ -96,7 +96,6 @@ function updateTurnIndicator(gameData, myPlayerId, isMyTurn) {
     indicator.style.color = isMyTurn ? '#ffd700' : '#888';
 }
 
-// ----- МИНИ-КАРТА -----
 function updateMinimap(gameData, myPlayerId) {
     const container = document.getElementById('minimap');
     const dungeon = gameData.dungeon;
@@ -106,190 +105,84 @@ function updateMinimap(gameData, myPlayerId) {
         return;
     }
     
-    const myPos = gameData.players?.[myPlayerId]?.position || Object.keys(dungeon.rooms)[0];
+    const currentFloor = dungeon.currentFloor || 1;
+    const myPos = gameData.players?.[myPlayerId]?.position || '';
     const rooms = dungeon.rooms;
-    const roomIds = Object.keys(rooms);
+    // Фильтруем комнаты только текущего этажа
+    const floorRooms = Object.keys(rooms).filter(id => rooms[id].floor === currentFloor);
+    
+    if (floorRooms.length === 0) {
+        container.innerHTML = '<div style="color:#666; font-size:12px; padding:10px;">🏚️ Нет комнат на этом этаже</div>';
+        return;
+    }
     
     let html = '';
-    roomIds.forEach(roomId => {
+    floorRooms.forEach(roomId => {
         const room = rooms[roomId];
         const isCurrent = roomId === myPos;
         const isCleared = room.isCleared || false;
+        const isRevealed = room.isRevealed || false;
+        const isExit = room.type === 'exit';
         
-        let icon = '🏚️';
-        if (room.type === 'combat') icon = '💀';
-        else if (room.type === 'chest') icon = '💎';
-        else if (room.type === 'rest') icon = '🏥';
-        else if (room.type === 'shop') icon = '🏪';
-        else if (room.type === 'boss') icon = '👑';
+        // Если комната не открыта и не текущая, показываем '?'
+        let icon = '❓';
+        let title = roomId;
+        if (isRevealed || isCurrent) {
+            if (room.type === 'combat') icon = '💀';
+            else if (room.type === 'chest') icon = '💎';
+            else if (room.type === 'rest') icon = '🏥';
+            else if (room.type === 'shop') icon = '🏪';
+            else if (room.type === 'boss') icon = '👑';
+            else if (room.type === 'exit') icon = '🚪';
+            else icon = '🏚️';
+            title = `${room.type} ${roomId}`;
+        } else {
+            title = '❓ Скрытая комната';
+        }
         
-        const playersInRoom = room.players || [];
-        const playerIcons = playersInRoom.map(pId => {
-            const p = gameData.players?.[pId];
-            if (!p) return '';
-            return CLASSES[p.class]?.emoji || '👤';
-        }).join('');
+        // Показываем, есть ли игроки в комнате (только если открыта)
+        let playerIcons = '';
+        if (isRevealed || isCurrent) {
+            const playersInRoom = room.players || [];
+            playerIcons = playersInRoom.map(pId => {
+                const p = gameData.players?.[pId];
+                if (!p) return '';
+                return CLASSES[p.class]?.emoji || '👤';
+            }).join('');
+        }
         
         let cls = 'minimap-room';
         if (room.type) cls += ` ${room.type}`;
         if (isCurrent) cls += ' current';
         if (isCleared) cls += ' cleared';
+        if (!isRevealed && !isCurrent) cls += ' hidden-room';
         
         html += `
-            <div class="${cls}" data-room="${roomId}" title="${roomId} (${room.type})">
+            <div class="${cls}" data-room="${roomId}" title="${title}" style="${!isRevealed && !isCurrent ? 'opacity:0.5;' : ''}">
                 ${icon}
                 <div class="room-players">${playerIcons || ' '}</div>
+                ${isExit && isCleared ? '<div style="font-size:10px; color:#4caf50;">✅</div>' : ''}
             </div>
         `;
     });
     
     container.innerHTML = html;
     
+    // Клик по комнате (только если она открыта или текущая)
     container.querySelectorAll('.minimap-room').forEach(el => {
         el.addEventListener('click', () => {
             const roomId = el.dataset.room;
-            if (roomId && gameData.turn?.phase === 'idle') {
+            if (!roomId) return;
+            const room = getRoom(dungeon, roomId);
+            if (!room) return;
+            // Можно перейти только в открытую комнату или если она уже посещена
+            if (room.isRevealed || roomId === myPos) {
                 window.selectRoom?.(roomId);
+            } else {
+                alert('🔒 Комната ещё не открыта!');
             }
         });
     });
-}
-
-// ----- ОТОБРАЖЕНИЕ ТЕКУЩЕЙ КОМНАТЫ -----
-function updateRoomView(gameData, myPlayerId, isMyTurn) {
-    const container = document.getElementById('room-view');
-    const myPos = gameData.players?.[myPlayerId]?.position;
-    
-    if (!myPos) {
-        container.innerHTML = '<div style="color:#666; text-align:center; padding:40px;">🏚️ Выберите комнату на карте</div>';
-        return;
-    }
-    
-    const room = getRoom(gameData.dungeon, myPos);
-    if (!room) {
-        container.innerHTML = '<div style="color:#666; text-align:center; padding:40px;">❌ Комната не найдена</div>';
-        return;
-    }
-    
-    currentRoomId = myPos;
-    
-    let title = '🏚️ Комната';
-    let bgColor = '';
-    if (room.type === 'combat') { title = '💀 Бой!'; bgColor = 'rgba(220,53,69,0.1)'; }
-    else if (room.type === 'chest') { title = '💎 Сундук'; bgColor = 'rgba(255,193,7,0.1)'; }
-    else if (room.type === 'rest') { title = '🏥 Отдых'; bgColor = 'rgba(40,167,69,0.1)'; }
-    else if (room.type === 'shop') { title = '🏪 Торговец'; bgColor = 'rgba(23,162,184,0.1)'; }
-    else if (room.type === 'boss') { title = '👑 БОСС!'; bgColor = 'rgba(255,0,0,0.2)'; }
-    
-    let enemiesHtml = '';
-    if (room.enemies && room.enemies.length > 0) {
-        enemiesHtml = `<div class="enemy-list">`;
-        room.enemies.forEach((enemy, index) => {
-            const isDead = !enemy.isAlive;
-            const isTargetable = isMyTurn && enemy.isAlive && !isDead && room.type !== 'rest' && room.type !== 'shop';
-            
-            enemiesHtml += `
-                <div class="enemy-card ${isDead ? 'enemy-dead' : ''} ${isTargetable ? 'targetable' : ''}" 
-                     data-enemy-index="${index}" style="${isTargetable ? 'cursor:pointer;' : ''}">
-                    <div class="enemy-emoji">${enemy.emoji || '👾'}</div>
-                    <div class="enemy-name">${enemy.name || 'Враг'}</div>
-                    <div class="enemy-hp">❤️ ${enemy.hp || 0}/${enemy.maxHp || 0}</div>
-                    ${enemy.poison ? `<div style="color:#7cfc00;font-size:11px;">☠️ Отравлен</div>` : ''}
-                    ${enemy.freeze ? `<div style="color:#00bfff;font-size:11px;">❄️ Заморожен</div>` : ''}
-                </div>
-            `;
-        });
-        enemiesHtml += `</div>`;
-    } else if (room.type === 'combat' || room.type === 'boss') {
-        enemiesHtml = `<div style="color:#4caf50;">✅ Все враги повержены!</div>`;
-    }
-    
-    let chestsHtml = '';
-    if (room.chests && room.chests.length > 0) {
-        chestsHtml = `<div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; justify-content:center;">`;
-        room.chests.forEach((chest, index) => {
-            const isOpened = chest.isOpened || false;
-            const rarityInfo = RARITY[chest.rarity] || { color: '#888' };
-            chestsHtml += `
-                <div class="enemy-card" data-chest-index="${index}" style="min-width:60px; cursor:${isOpened ? 'default' : 'pointer'}; border-color:${isOpened ? '#2a2f45' : rarityInfo.color};">
-                    <div style="font-size:32px;">${isOpened ? '📭' : '📦'}</div>
-                    <div style="font-size:11px;color:${rarityInfo.color};">${RARITY[chest.rarity]?.label || ''}</div>
-                    ${isOpened ? '<div style="color:#888;font-size:10px;">✅ Открыт</div>' : ''}
-                </div>
-            `;
-        });
-        chestsHtml += `</div>`;
-    }
-    
-    let shopHtml = '';
-    if (room.type === 'shop' && room.shopItems && room.shopItems.length > 0) {
-        shopHtml = `<div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; justify-content:center;">`;
-        room.shopItems.forEach((item, index) => {
-            shopHtml += `
-                <div class="enemy-card" data-shop-index="${index}" style="cursor:pointer; min-width:70px; border-color:#17a2b8;">
-                    <div style="font-size:28px;">${item.emoji || '📦'}</div>
-                    <div style="font-size:12px;color:#ddd;">${item.name}</div>
-                    <div style="font-size:12px;color:#ffd700;">💰 ${item.price}</div>
-                </div>
-            `;
-        });
-        shopHtml += `</div>`;
-    }
-    
-    let restHtml = '';
-    if (room.type === 'rest' && !room.isCleared) {
-        restHtml = `
-            <button class="btn-success" id="btn-rest-heal" style="padding:12px 30px; border-radius:10px; border:none; font-weight:bold; cursor:pointer;">
-                🏥 Отдохнуть (+50% HP)
-            </button>
-        `;
-    }
-    
-    container.innerHTML = `
-        <div class="room-title" style="background:${bgColor}; padding:8px 20px; border-radius:10px; width:100%; text-align:center;">${title}</div>
-        ${enemiesHtml}
-        ${chestsHtml}
-        ${shopHtml}
-        ${restHtml}
-        <div style="color:#666; font-size:12px; margin-top:8px;">
-            ${room.isCleared ? '✅ Комната зачищена' : ''}
-            ${room.type === 'rest' && room.isCleared ? '✅ Отдых завершён' : ''}
-        </div>
-    `;
-    
-    container.querySelectorAll('.enemy-card.targetable').forEach(el => {
-        el.addEventListener('click', () => {
-            const index = parseInt(el.dataset.enemyIndex);
-            if (!isNaN(index) && isMyTurn) {
-                window.selectEnemyTarget?.(index);
-            }
-        });
-    });
-    
-    container.querySelectorAll('[data-chest-index]').forEach(el => {
-        el.addEventListener('click', () => {
-            const index = parseInt(el.dataset.chestIndex);
-            if (!isNaN(index) && room.chests && !room.chests[index]?.isOpened) {
-                window.openChestAction?.(index);
-            }
-        });
-    });
-    
-    container.querySelectorAll('[data-shop-index]').forEach(el => {
-        el.addEventListener('click', () => {
-            const index = parseInt(el.dataset.shopIndex);
-            if (!isNaN(index) && room.shopItems) {
-                window.buyShopAction?.(index);
-            }
-        });
-    });
-    
-    const restBtn = document.getElementById('btn-rest-heal');
-    if (restBtn) {
-        restBtn.addEventListener('click', () => {
-            window.restHealAction?.();
-        });
-    }
 }
 
 // ----- СЛОТЫ -----
