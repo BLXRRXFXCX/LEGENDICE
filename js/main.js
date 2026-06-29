@@ -227,6 +227,10 @@ async function initializeGame(gameId) {
     if (!data.dungeon) {
         const totalFloors = 5;
         const dungeon = generateDungeon(totalFloors);
+        
+        // УДАЛЯЕМ map, потому что это вложенный массив (Firestore не поддерживает)
+        delete dungeon.map;
+        
         const firstRoom = Object.keys(dungeon.rooms)[0];
         
         const updates = {
@@ -246,7 +250,6 @@ async function initializeGame(gameId) {
             }
         };
         
-        // Обновляем позиции
         if (data.players.player1) {
             updates['players.player1.position'] = firstRoom;
         }
