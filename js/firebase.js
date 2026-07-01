@@ -231,6 +231,26 @@ export function sendPing(gameId, playerId, roomId, emoji) {
     });
 }
 
+
+// ----- ОБНОВИТЬ ИМЯ ИГРОКА -----
+export function updatePlayerName(gameId, playerId, name) {
+    const gameRef = db.collection('games').doc(gameId);
+    const updateData = {};
+    updateData[`players.${playerId}.name`] = name;
+    updateData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+    return gameRef.update(updateData);
+}
+
+// ----- ОБНОВИТЬ КЛАСС ИГРОКА -----
+export function updatePlayerClass(gameId, playerId, className) {
+    const gameRef = db.collection('games').doc(gameId);
+    const updateData = {};
+    updateData[`players.${playerId}.class`] = className;
+    updateData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+    return gameRef.update(updateData);
+}
+
+
 // ============================================================
 // УПРАВЛЕНИЕ ИГРОКАМИ
 // ============================================================
@@ -260,3 +280,4 @@ export function deleteGame(gameId) {
 }
 
 console.log('🔥 Firebase инициализирован. Режим:', navigator.onLine ? 'онлайн' : 'офлайн');
+
