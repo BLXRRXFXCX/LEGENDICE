@@ -279,18 +279,31 @@ function updateRoomView(gameData, myPlayerId, isMyTurn) {
         `;
     }
     
-    // Выход на следующий этаж
-    let exitHtml = '';
-    if (room.type === 'exit' && room.isCleared) {
-        const dungeon = gameData.dungeon;
-        const canGo = isFloorCleared(dungeon);
-        exitHtml = `
-            <button class="btn-primary" id="btn-next-floor" style="padding:12px 30px; border-radius:10px; border:none; font-weight:bold; cursor:pointer; ${!canGo ? 'opacity:0.5; pointer-events:none;' : ''}">
-                🚪 Перейти на следующий этаж
-            </button>
-            ${!canGo ? '<div style="color:#ff6b6b; font-size:12px;">❌ Сначала зачистите все комнаты этажа!</div>' : ''}
-        `;
-    }
+   // Выход на следующий этаж
+let exitHtml = '';
+if (room.type === 'exit' && room.isCleared) {
+    const dungeon = gameData.dungeon;
+    // Проверяем, зачищены ли все боевые комнаты
+    const floorRooms = getCurrentFloorRooms(dungeon);
+    const combatRooms = floorRooms.filter(id => {
+        const r = dungeon.rooms[id];
+        return r.type === 'combat' || r.type === 'boss';
+    });
+    const allCombatCleared = combatRooms.every(id => {
+        const r = dungeon.rooms[id];
+        if (r.enemies) {
+            return r.enemies.every(enemy => !enemy.isAlive);
+        }
+        return r.isCleared;
+    });
+    
+    exitHtml = `
+        <button class="btn-primary" id="btn-next-floor" style="padding:12px 30px; border-radius:10px; border:none; font-weight:bold; cursor:pointer; ${!allCombatCleared ? 'opacity:0.5; pointer-events:none;' : ''}">
+            🚪 Перейти на следующий этаж
+        </button>
+        ${!allCombatCleared ? '<div style="color:#ff6b6b; font-size:12px;">❌ Сначала зачистите все комнаты с врагами!</div>' : ''}
+    `;
+}
     
     container.innerHTML = `
         <div class="room-title" style="background:${bgColor}; padding:8px 20px; border-radius:10px; width:100%; text-align:center;">${title}</div>
