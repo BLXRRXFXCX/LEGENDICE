@@ -208,12 +208,26 @@ export function getCurrentFloorRooms(dungeon) {
 }
 
 // ----- ПРОВЕРИТЬ, ЗАЧИЩЕН ЛИ ЭТАЖ -----
+// ----- ПРОВЕРИТЬ, ЗАЧИЩЕН ЛИ ЭТАЖ (ТОЛЬКО БОЕВЫЕ КОМНАТЫ) -----
 export function isFloorCleared(dungeon) {
     const rooms = getCurrentFloorRooms(dungeon);
-    // Все комнаты должны быть зачищены или быть выходом
-    return rooms.every(roomId => {
+    // Проверяем только комнаты с врагами (combat и boss)
+    const combatRooms = rooms.filter(roomId => {
         const room = dungeon.rooms[roomId];
-        return room.isCleared || room.type === 'exit';
+        return room.type === 'combat' || room.type === 'boss';
+    });
+    
+    // Если нет боевых комнат — этаж считается зачищенным
+    if (combatRooms.length === 0) return true;
+    
+    // Все боевые комнаты должны быть зачищены
+    return combatRooms.every(roomId => {
+        const room = dungeon.rooms[roomId];
+        // Проверяем, что все враги мертвы
+        if (room.enemies) {
+            return room.enemies.every(enemy => !enemy.isAlive);
+        }
+        return room.isCleared;
     });
 }
 
