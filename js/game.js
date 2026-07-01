@@ -38,34 +38,42 @@ export function generateFloorsFromDice() {
 }
 
 
-// ----- ГЕНЕРАЦИЯ ОДНОГО ЭТАЖА -----
+// ----- ГЕНЕРАЦИЯ ОДНОГО ЭТАЖА (С БРОСКОМ КОМНАТ) -----
 function generateFloor(floorNum, totalFloors) {
-    const numRooms = Math.floor(Math.random() * 3) + 3; // 3-5 комнат
-    const rooms = {};
+    // БРОСОК НА КОЛИЧЕСТВО КОМНАТ: 1d6
+    const roomRoll = Math.floor(Math.random() * 6) + 1;
+    // Минимум 2, максимум 6 комнат
+    const numRooms = Math.min(Math.max(roomRoll, 2), 6);
     
+    const rooms = {};
     const isBossFloor = floorNum === totalFloors;
-    // Всегда добавляем комнаты боя, сундуки, отдых, магазин
     const roomTypes = ['combat', 'combat', 'chest', 'rest', 'shop'];
     if (isBossFloor) roomTypes.push('boss');
+    if (!isBossFloor) roomTypes.push('exit');
     
-    // Добавляем выход (exit) в конце этажа, кроме последнего босса
-    if (!isBossFloor) {
-        roomTypes.push('exit');
-    }
-    
-    // Перемешиваем типы, чтобы выход не всегда был последним
+    // Перемешиваем типы комнат
     shuffleArray(roomTypes);
     
-    for (let i = 0; i < roomTypes.length; i++) {
+    // Берём столько типов, сколько комнат выпало
+    const usedTypes = [];
+    for (let i = 0; i < numRooms; i++) {
+        // Если типов меньше, чем комнат — повторяем
+        const typeIndex = i % roomTypes.length;
+        usedTypes.push(roomTypes[typeIndex]);
+    }
+    // Перемешиваем ещё раз, чтобы порядок был случайным
+    shuffleArray(usedTypes);
+    
+    for (let i = 0; i < usedTypes.length; i++) {
         const roomId = `floor${floorNum}_room${i+1}`;
-        const type = roomTypes[i] || 'combat';
+        const type = usedTypes[i] || 'combat';
         
         rooms[roomId] = {
             id: roomId,
             type: type,
             floor: floorNum,
             isCleared: false,
-            isRevealed: false,   // Новая опция: показана ли комната игрокам
+            isRevealed: false,
             players: [],
             enemies: [],
             chests: [],
@@ -86,11 +94,16 @@ function generateFloor(floorNum, totalFloors) {
             rooms[roomId].shopItems = generateShopItems(floorNum);
         }
         
-        // Выход не требует врагов или предметов
         if (type === 'exit') {
-            rooms[roomId].isCleared = true; // доступен сразу
+            rooms[roomId].isCleared = true;
         }
     }
+    
+    // Сохраняем результат броска для отображения
+    rooms._meta = {
+        roomRoll: roomRoll,
+        numRooms: numRooms
+    };
     
     return { rooms };
 }
