@@ -1,5 +1,5 @@
 // ============================================================
-// LEGENDICE - dice3d.js (ПРАВИЛЬНЫЕ ВРАЩЕНИЯ)
+// LEGENDICE - dice3d.js (С ЦЕНТРИРОВАНИЕМ ДЛЯ ТЕЛЕФОНА)
 // ============================================================
 
 let scene, camera, renderer;
@@ -16,22 +16,48 @@ let cameraEndLook = null;
 let cameraAnimStartTime = null;
 let cameraAnimDuration = 1200;
 
+// ------ СООТВЕТСТВИЕ ЭМОДЗИ → ЗНАЧЕНИЕ ------
+const EMOJI_TO_VALUE = {
+    '⚀': 1,
+    '⚁': 2,
+    '⚂': 3,
+    '⚃': 4,
+    '⚄': 5,
+    '⚅': 6
+};
+
 // ----- ИНИЦИАЛИЗАЦИЯ -----
 export function initDice3D() {
     const container = document.getElementById('dice-canvas-container');
     if (!container) return;
     
-    const width = container.clientWidth || 300;
-    const height = container.clientHeight || 400;
+    // Функция обновления размеров
+    function updateSize() {
+        const rect = container.getBoundingClientRect();
+        const width = rect.width || container.clientWidth || 300;
+        const height = rect.height || container.clientHeight || 400;
+        
+        if (camera) {
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+        }
+        if (renderer) {
+            renderer.setSize(width, height);
+        }
+    }
     
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x1a1a2e);
+    
+    const width = container.clientWidth || 300;
+    const height = container.clientHeight || 400;
     
     camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
     camera.position.set(0, 4, 6);
     camera.lookAt(0, 0, 0);
     
     renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(width, height);
     renderer.shadowMap.enabled = true;
     container.appendChild(renderer.domElement);
@@ -65,13 +91,18 @@ export function initDice3D() {
     gridHelper.position.y = -0.4;
     scene.add(gridHelper);
     
+    // Ресайз с улучшенной обработкой
+    let resizeTimeout;
     window.addEventListener('resize', () => {
-        const w = container.clientWidth || 300;
-        const h = container.clientHeight || 400;
-        camera.aspect = w / h;
-        camera.updateProjectionMatrix();
-        renderer.setSize(w, h);
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(updateSize, 100);
     });
+    
+    window.addEventListener('orientationchange', () => {
+        setTimeout(updateSize, 300);
+    });
+    
+    setTimeout(updateSize, 50);
     
     animate();
     console.log('🎲 3D сцена инициализирована');
@@ -128,7 +159,7 @@ function animateCameraToTop() {
 }
 
 // ============================================================
-// ТЕКСТУРА С ЭМОДЗИ
+// ТЕКСТУРА С ЭМОДЗИ (УВЕЛИЧЕННЫЙ ШРИФТ)
 // ============================================================
 function createFaceTexture(emoji, bgColor = '#ffffff') {
     const canvas = document.createElement('canvas');
@@ -140,34 +171,55 @@ function createFaceTexture(emoji, bgColor = '#ffffff') {
     ctx.fillRect(0, 0, 128, 128);
     
     ctx.strokeStyle = '#333';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1.5;
     ctx.strokeRect(2, 2, 124, 124);
     
-    ctx.font = '120px Arial';
+    ctx.font = '200px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#000';
-    ctx.fillText(emoji, 64, 68);
+    ctx.fillText(emoji, 64, 70);
     
     return new THREE.CanvasTexture(canvas);
 }
 
 // ============================================================
-// ПРАВИЛЬНЫЕ ВРАЩЕНИЯ (ПРОВЕРЕНО)
+// ОПРЕДЕЛЕНИЕ ЗНАЧЕНИЯ ПО ТЕКСТУРЕ ВЕРХНЕЙ ГРАНИ
 // ============================================================
-function getRotationForValue(value) {
-    // Вращения подобраны эмпирически для стандартного кубика Three.js
-    // Индексы граней: 0:+x, 1:-x, 2:+y, 3:-y, 4:+z, 5:-z
-    // Эмодзи: 0:⚀, 1:⚁, 2:⚂, 3:⚃, 4:⚄, 5:⚅
-    switch(value) {
-        case 1: return { x: 0, y: 0, z: 0 };              // ⚀ — без вращения (грань 0 сверху)
-        case 2: return { x: -Math.PI / 2, y: 0, z: 0 };   // ⚁ — поворот вокруг X
-        case 3: return { x: 0, y: 0, z: -Math.PI / 2 };   // ⚂ — поворот вокруг Z
-        case 4: return { x: Math.PI / 2, y: 0, z: 0 };    // ⚃ — поворот вокруг X
-        case 5: return { x: 0, y: 0, z: Math.PI / 2 };    // ⚄ — поворот вокруг Z
-        case 6: return { x: 0, y: Math.PI, z: 0 };        // ⚅ — поворот вокруг Y
-        default: return { x: 0, y: 0, z: 0 };
+function getValueFromTopFace(mesh) {
+    const material = mesh.material[2];
+    if (!material || !material.map) return 0;
+    
+    const canvas = material.map.image;
+    if (!canvas) return 0;
+    
+    const ctx = canvas.getContext('2d');
+    
+    const imageData = ctx.getImageData(30, 30, 68, 68);
+    const data = imageData.data;
+    let blackCount = 0;
+    let totalChecked = 0;
+    
+    for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        if (r < 50 && g < 50 && b < 50) {
+            blackCount++;
+        }
+        totalChecked++;
     }
+    
+    const ratio = blackCount / totalChecked;
+    let value = 1;
+    if (ratio < 0.01) value = 1;
+    else if (ratio < 0.03) value = 2;
+    else if (ratio < 0.06) value = 3;
+    else if (ratio < 0.10) value = 4;
+    else if (ratio < 0.15) value = 5;
+    else value = 6;
+    
+    return value;
 }
 
 // ============================================================
@@ -177,7 +229,6 @@ function createDiceMesh(value) {
     const size = 0.9;
     const geometry = new THREE.BoxGeometry(size, size, size);
     
-    // Эмодзи в порядке индексов граней: 0:+x, 1:-x, 2:+y, 3:-y, 4:+z, 5:-z
     const emojis = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
     const materials = emojis.map((emoji, index) => {
         const isSelected = (index + 1) === value;
@@ -194,7 +245,20 @@ function createDiceMesh(value) {
     const mesh = new THREE.Mesh(geometry, materials);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
+    mesh.userData.value = value;
     return mesh;
+}
+
+// ============================================================
+// ОПРЕДЕЛЕНИЕ ЗНАЧЕНИЙ ПОСЛЕ ОСТАНОВКИ
+// ============================================================
+function getDiceValues() {
+    const values = [];
+    diceMeshes.forEach(mesh => {
+        const value = getValueFromTopFace(mesh);
+        values.push(value);
+    });
+    return values;
 }
 
 // ============================================================
@@ -254,10 +318,9 @@ export function rollDiceWithValues(values, callback = null) {
         const startRotY = dice.rotation.y;
         const startRotZ = dice.rotation.z;
         
-        const targetRot = getRotationForValue(value);
-        const targetRotX = targetRot.x;
-        const targetRotY = targetRot.y;
-        const targetRotZ = targetRot.z;
+        const targetRotX = (Math.random() - 0.5) * Math.PI * 2;
+        const targetRotY = (Math.random() - 0.5) * Math.PI * 2;
+        const targetRotZ = (Math.random() - 0.5) * Math.PI * 2;
         
         const offsetX = (Math.random() - 0.5) * 0.4;
         const offsetZ = (Math.random() - 0.5) * 0.4;
@@ -311,8 +374,17 @@ export function rollDiceWithValues(values, callback = null) {
                     }
                     
                     setTimeout(() => {
+                        const detectedValues = getDiceValues();
+                        console.log('🎲 Определённые значения:', detectedValues);
+                        
                         result.style.display = 'block';
-                        if (rollCompleteCallback) rollCompleteCallback(values);
+                        if (rollCompleteCallback) {
+                            if (detectedValues.length === count && detectedValues.every(v => v > 0)) {
+                                rollCompleteCallback(detectedValues);
+                            } else {
+                                rollCompleteCallback(values);
+                            }
+                        }
                     }, 1500);
                 }
             }
