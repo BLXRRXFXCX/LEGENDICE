@@ -1,6 +1,5 @@
 // ============================================================
-// LEGENDICE - dice3d.js
-// 3D кубики с текстурами эмодзи и улучшенной анимацией
+// LEGENDICE - dice3d.js (ИСПРАВЛЕННАЯ ВЕРСИЯ)
 // ============================================================
 
 let scene, camera, renderer;
@@ -78,7 +77,7 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-// ----- СОЗДАНИЕ ТЕКСТУРЫ ДЛЯ ГРАНИ С ЭМОДЗИ -----
+// ----- СОЗДАНИЕ ТЕКСТУРЫ ДЛЯ ГРАНИ С ЭМОДЗИ (УВЕЛИЧЕННЫЙ ШРИФТ) -----
 function createFaceTexture(emoji, bgColor = '#ffffff') {
     const canvas = document.createElement('canvas');
     canvas.width = 128;
@@ -89,17 +88,17 @@ function createFaceTexture(emoji, bgColor = '#ffffff') {
     ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, 128, 128);
     
-    // Рамка
+    // Рамка (тонкая)
     ctx.strokeStyle = '#333';
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 2;
     ctx.strokeRect(2, 2, 124, 124);
     
-    // Текст (эмодзи)
-    ctx.font = '80px Arial';
+    // Текст (эмодзи) — увеличен до 100px
+    ctx.font = '100px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#000';
-    ctx.fillText(emoji, 64, 66);
+    ctx.fillText(emoji, 64, 68);
     
     return new THREE.CanvasTexture(canvas);
 }
@@ -109,7 +108,6 @@ function createDiceMesh(value) {
     const size = 0.9;
     const geometry = new THREE.BoxGeometry(size, size, size);
     
-    // Эмодзи для граней (1-6)
     const emojis = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
     const materials = emojis.map((emoji, index) => {
         const isSelected = (index + 1) === value;
@@ -129,7 +127,7 @@ function createDiceMesh(value) {
     return mesh;
 }
 
-// ----- БРОСОК КУБИКОВ С ЗАДАННЫМИ ЗНАЧЕНИЯМИ (УЛУЧШЕННАЯ АНИМАЦИЯ) -----
+// ----- БРОСОК КУБИКОВ С ЗАДАННЫМИ ЗНАЧЕНИЯМИ -----
 export function rollDiceWithValues(values, callback = null) {
     if (isRolling) return;
     isRolling = true;
@@ -137,7 +135,6 @@ export function rollDiceWithValues(values, callback = null) {
     
     clearDice();
     
-    // Показываем контейнер
     const container = document.getElementById('dice-container');
     const result = document.getElementById('dice-result');
     container.style.display = 'flex';
@@ -156,7 +153,6 @@ export function rollDiceWithValues(values, callback = null) {
     positions.forEach((x, i) => {
         const value = values[i];
         const dice = createDiceMesh(value);
-        // Начальная позиция: высоко и со случайным смещением
         dice.position.set(
             x + (Math.random() - 0.5) * 0.5,
             3 + Math.random() * 2,
@@ -171,7 +167,6 @@ export function rollDiceWithValues(values, callback = null) {
         diceMeshes.push(dice);
         
         const targetY = -0.3 + Math.random() * 0.1;
-        // Ускоренное падение (600-1000 мс)
         const duration = 600 + Math.random() * 400;
         const startTime = Date.now();
         const startY = dice.position.y;
@@ -184,38 +179,28 @@ export function rollDiceWithValues(values, callback = null) {
         const offsetX = (Math.random() - 0.5) * 0.4;
         const offsetZ = (Math.random() - 0.5) * 0.4;
         
-        // Фазы анимации: падение, отскок, затухание
-        let bouncePhase = 0; // 0: падение, 1: первый отскок, 2: второй отскок
-        
         function updateFall() {
             const elapsed = Date.now() - startTime;
             let progress = Math.min(elapsed / duration, 1);
             
-            // Easing с отскоком в конце
             let eased;
             if (progress < 0.7) {
-                // Падение
                 const p = progress / 0.7;
-                eased = p * p; // ускорение
+                eased = p * p;
             } else {
-                // Отскок
                 const p = (progress - 0.7) / 0.3;
-                // Небольшой подскок
                 const bounce = Math.sin(p * Math.PI * 2) * 0.15 * (1 - p);
                 eased = 1 + bounce;
             }
             
-            // Позиция Y
             const currentY = startY + (targetY - startY) * Math.min(eased, 1.1);
             dice.position.y = Math.max(currentY, targetY);
             
-            // Смещение по X и Z (качение)
             const rollX = offsetX * (1 - progress);
             const rollZ = offsetZ * (1 - progress);
             dice.position.x = x + rollX;
             dice.position.z = rollZ;
             
-            // Вращение
             dice.rotation.x = startRotX + (targetRotX - startRotX) * progress;
             dice.rotation.y = startRotY + (targetRotY - startRotY) * progress * 1.5;
             dice.rotation.z = startRotZ + (targetRotZ - startRotZ) * progress;
@@ -223,7 +208,6 @@ export function rollDiceWithValues(values, callback = null) {
             if (progress < 1) {
                 requestAnimationFrame(updateFall);
             } else {
-                // Фиксация
                 dice.position.y = targetY;
                 dice.position.x = x;
                 dice.position.z = 0;
@@ -234,7 +218,6 @@ export function rollDiceWithValues(values, callback = null) {
                 completed++;
                 if (completed === count) {
                     isRolling = false;
-                    // Выравнивание (показ верхней грани)
                     alignDice(values);
                     setTimeout(() => {
                         result.style.display = 'block';
@@ -243,7 +226,6 @@ export function rollDiceWithValues(values, callback = null) {
                 }
             }
         }
-        // Каскадная задержка
         setTimeout(updateFall, i * 100);
     });
 }
@@ -284,7 +266,6 @@ function alignDice(values) {
                 mesh.position.z = 0;
                 mesh.rotation.x = 0;
                 mesh.rotation.z = 0;
-                // Подсветка верхней грани
                 highlightDiceValue(mesh, values[i]);
             }
         }
