@@ -896,6 +896,7 @@ function sendChat() {
 // 12. ВЫБОР КОМНАТЫ
 // ============================================================
 
+// ----- ВЫБОР КОМНАТЫ (ИСПРАВЛЕННАЯ ЛОГИКА) -----
 window.selectRoom = function(roomId) {
     if (!gameState || !currentPlayerId) return;
     const player = gameState.players[currentPlayerId];
@@ -920,18 +921,36 @@ window.selectRoom = function(roomId) {
         return;
     }
     
+    // ==========================================================
+    // НОВАЯ ЛОГИКА ПРОВЕРКИ ВЫХОДА ИЗ КОМНАТЫ
+    // ==========================================================
     if (currentRoom) {
-        if (currentRoom.enemies && currentRoom.enemies.some(e => e.isAlive)) {
+        // Проверяем, можно ли покинуть комнату
+        const hasAliveEnemies = currentRoom.enemies && currentRoom.enemies.some(e => e.isAlive);
+        const isCombatRoom = currentRoom.type === 'combat' || currentRoom.type === 'boss';
+        
+        // Если это боевая комната и есть живые враги — нельзя выйти
+        if (isCombatRoom && hasAliveEnemies) {
             alert('⚔️ Сначала победите всех врагов в этой комнате!');
             return;
         }
-        if (currentRoom.type === 'exit' && !currentRoom.isCleared && roomId !== player.position) {
-            alert('🚪 Сначала откройте выход!');
+        
+        // Если это комната выхода — можно выйти только если она пройдена
+        if (currentRoom.type === 'exit' && !currentRoom.isCleared) {
+            alert('🚪 Выход ещё не открыт! Зачистите все комнаты этажа.');
             return;
+        }
+        
+        // Комнаты: сундук, магазин, отдых — можно покидать всегда
+        // Комнаты с боссом — можно покидать, если босс мёртв
+        if (isCombatRoom && !hasAliveEnemies) {
+            // Все враги мертвы — можно выйти
+            currentRoom.isCleared = true;
+            currentRoom.isRevealed = true;
         }
     }
     
-    const oldPos = player.position;
+    // Перемещаем игрока
     player.position = roomId;
     
     if (!targetRoom.players) targetRoom.players = [];
@@ -947,8 +966,10 @@ window.selectRoom = function(roomId) {
         targetRoom.isRevealed = true;
     }
     
-    if (targetRoom.type === 'boss' && targetRoom.enemies && targetRoom.enemies.some(e => e.isAlive)) {
-        addLog(`👑 Босс в комнате ${targetRoom.id}!`);
+    // Проверяем, есть ли живые враги в целевой комнате (если это боевая)
+    const hasTargetEnemies = targetRoom.enemies && targetRoom.enemies.some(e => e.isAlive);
+    if ((targetRoom.type === 'combat' || targetRoom.type === 'boss') && hasTargetEnemies) {
+        addLog(`⚔️ Бой в комнате ${targetRoom.id}!`);
         gameState.turn.phase = 'roll';
         gameState.turn.currentPlayer = currentPlayerId;
         updateGameState(currentGameId, {
@@ -960,14 +981,7 @@ window.selectRoom = function(roomId) {
         return;
     }
     
-    if ((targetRoom.type === 'combat' || targetRoom.type === 'boss') && targetRoom.enemies && targetRoom.enemies.some(e => e.isAlive)) {
-        gameState.turn.phase = 'roll';
-        gameState.turn.currentPlayer = currentPlayerId;
-        addLog(`⚔️ Бой в комнате ${targetRoom.id}!`);
-    } else {
-        gameState.turn.phase = 'idle';
-    }
-    
+    gameState.turn.phase = 'idle';
     updateGameState(currentGameId, {
         players: gameState.players,
         dungeon: gameState.dungeon,
@@ -976,6 +990,7 @@ window.selectRoom = function(roomId) {
     
     updateUI(gameState, currentPlayerId, isMyTurn);
 };
+
 
 // ============================================================
 // 13. ВЫБОР ЦЕЛИ
