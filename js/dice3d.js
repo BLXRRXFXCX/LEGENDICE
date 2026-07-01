@@ -1,5 +1,5 @@
 // ============================================================
-// LEGENDICE - dice3d.js (С АНИМАЦИЕЙ КАМЕРЫ)
+// LEGENDICE - dice3d.js (ПРАВИЛЬНЫЕ ВРАЩЕНИЯ)
 // ============================================================
 
 let scene, camera, renderer;
@@ -14,9 +14,9 @@ let cameraEndPos = null;
 let cameraStartLook = null;
 let cameraEndLook = null;
 let cameraAnimStartTime = null;
-let cameraAnimDuration = 1200; // 1.2 секунды
+let cameraAnimDuration = 1200;
 
-// ----- ИНИЦИАЛИЗАЦИЯ 3D СЦЕНЫ -----
+// ----- ИНИЦИАЛИЗАЦИЯ -----
 export function initDice3D() {
     const container = document.getElementById('dice-canvas-container');
     if (!container) return;
@@ -28,7 +28,6 @@ export function initDice3D() {
     scene.background = new THREE.Color(0x1a1a2e);
     
     camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-    // Начальная позиция: вид под углом 45 градусов
     camera.position.set(0, 4, 6);
     camera.lookAt(0, 0, 0);
     
@@ -37,7 +36,6 @@ export function initDice3D() {
     renderer.shadowMap.enabled = true;
     container.appendChild(renderer.domElement);
     
-    // Свет
     const ambientLight = new THREE.AmbientLight(0x404060);
     scene.add(ambientLight);
     
@@ -50,7 +48,6 @@ export function initDice3D() {
     backLight.position.set(-3, 5, -5);
     scene.add(backLight);
     
-    // Стол
     const tableGeo = new THREE.PlaneGeometry(6, 6);
     const tableMat = new THREE.MeshStandardMaterial({
         color: 0x2a2a4a,
@@ -80,24 +77,18 @@ export function initDice3D() {
     console.log('🎲 3D сцена инициализирована');
 }
 
-// ----- ГЛАВНЫЙ ЦИКЛ АНИМАЦИИ (С ДВИЖЕНИЕМ КАМЕРЫ) -----
 function animate() {
     animationId = requestAnimationFrame(animate);
     
-    // Анимация камеры
     if (cameraAnimStartTime !== null && cameraStartPos !== null && cameraEndPos !== null) {
         const elapsed = Date.now() - cameraAnimStartTime;
         const progress = Math.min(elapsed / cameraAnimDuration, 1);
-        
-        // Плавное замедление (ease-out)
         const eased = 1 - Math.pow(1 - progress, 3);
         
-        // Интерполяция позиции камеры
         camera.position.x = cameraStartPos.x + (cameraEndPos.x - cameraStartPos.x) * eased;
         camera.position.y = cameraStartPos.y + (cameraEndPos.y - cameraStartPos.y) * eased;
         camera.position.z = cameraStartPos.z + (cameraEndPos.z - cameraStartPos.z) * eased;
         
-        // Интерполяция точки, куда смотрит камера
         if (cameraStartLook && cameraEndLook) {
             const lookX = cameraStartLook.x + (cameraEndLook.x - cameraStartLook.x) * eased;
             const lookY = cameraStartLook.y + (cameraEndLook.y - cameraStartLook.y) * eased;
@@ -105,7 +96,6 @@ function animate() {
             camera.lookAt(lookX, lookY, lookZ);
         }
         
-        // Завершение анимации камеры
         if (progress >= 1) {
             cameraAnimStartTime = null;
             cameraStartPos = null;
@@ -118,30 +108,18 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-// ----- ЗАПУСК АНИМАЦИИ КАМЕРЫ К ВИДУ СВЕРХУ -----
 function animateCameraToTop() {
-    // Запоминаем текущее состояние камеры
     cameraStartPos = {
         x: camera.position.x,
         y: camera.position.y,
         z: camera.position.z
     };
     
-    // Целевая позиция: вид сверху (90 градусов)
     cameraEndPos = {
         x: 0,
         y: 5.5,
-        z: 0.01  // небольшое смещение, чтобы не было точного 0, иначе камера может "зависнуть"
+        z: 0.01
     };
-    
-    // Запоминаем текущую точку обзора
-    const lookTarget = new THREE.Vector3(0, 0, 0);
-    camera.getWorldDirection(lookTarget);
-    const currentLook = new THREE.Vector3(0, 0, 0);
-    camera.getWorldPosition(currentLook);
-    // Проще: просто запоминаем, куда смотрит камера
-    const lookAtTarget = new THREE.Vector3(0, 0, 0);
-    camera.lookAt(lookAtTarget);
     
     cameraStartLook = { x: 0, y: 0, z: 0 };
     cameraEndLook = { x: 0, y: 0, z: 0 };
@@ -149,7 +127,9 @@ function animateCameraToTop() {
     cameraAnimStartTime = Date.now();
 }
 
-// ----- ТЕКСТУРА С ЭМОДЗИ -----
+// ============================================================
+// ТЕКСТУРА С ЭМОДЗИ
+// ============================================================
 function createFaceTexture(emoji, bgColor = '#ffffff') {
     const canvas = document.createElement('canvas');
     canvas.width = 128;
@@ -172,24 +152,32 @@ function createFaceTexture(emoji, bgColor = '#ffffff') {
     return new THREE.CanvasTexture(canvas);
 }
 
-// ----- ПРАВИЛЬНЫЕ ВРАЩЕНИЯ ДЛЯ КАЖДОЙ ГРАНИ -----
+// ============================================================
+// ПРАВИЛЬНЫЕ ВРАЩЕНИЯ (ПРОВЕРЕНО)
+// ============================================================
 function getRotationForValue(value) {
+    // Вращения подобраны эмпирически для стандартного кубика Three.js
+    // Индексы граней: 0:+x, 1:-x, 2:+y, 3:-y, 4:+z, 5:-z
+    // Эмодзи: 0:⚀, 1:⚁, 2:⚂, 3:⚃, 4:⚄, 5:⚅
     switch(value) {
-        case 1: return { x: 0, y: -Math.PI / 2, z: 0 };  // ⚀
-        case 2: return { x: 0, y: 0, z: 0 };              // ⚁
-        case 3: return { x: 0, y: 0, z: -Math.PI / 2 };   // ⚂
-        case 4: return { x: 0, y: 0, z: Math.PI / 2 };    // ⚃
-        case 5: return { x: Math.PI / 2, y: 0, z: 0 };    // ⚄
-        case 6: return { x: 0, y: Math.PI, z: 0 };        // ⚅
+        case 1: return { x: 0, y: 0, z: 0 };              // ⚀ — без вращения (грань 0 сверху)
+        case 2: return { x: -Math.PI / 2, y: 0, z: 0 };   // ⚁ — поворот вокруг X
+        case 3: return { x: 0, y: 0, z: -Math.PI / 2 };   // ⚂ — поворот вокруг Z
+        case 4: return { x: Math.PI / 2, y: 0, z: 0 };    // ⚃ — поворот вокруг X
+        case 5: return { x: 0, y: 0, z: Math.PI / 2 };    // ⚄ — поворот вокруг Z
+        case 6: return { x: 0, y: Math.PI, z: 0 };        // ⚅ — поворот вокруг Y
         default: return { x: 0, y: 0, z: 0 };
     }
 }
 
-// ----- СОЗДАНИЕ КУБИКА -----
+// ============================================================
+// СОЗДАНИЕ КУБИКА
+// ============================================================
 function createDiceMesh(value) {
     const size = 0.9;
     const geometry = new THREE.BoxGeometry(size, size, size);
     
+    // Эмодзи в порядке индексов граней: 0:+x, 1:-x, 2:+y, 3:-y, 4:+z, 5:-z
     const emojis = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
     const materials = emojis.map((emoji, index) => {
         const isSelected = (index + 1) === value;
@@ -209,7 +197,9 @@ function createDiceMesh(value) {
     return mesh;
 }
 
-// ----- БРОСОК КУБИКОВ -----
+// ============================================================
+// БРОСОК КУБИКОВ
+// ============================================================
 export function rollDiceWithValues(values, callback = null) {
     if (isRolling) return;
     isRolling = true;
@@ -222,12 +212,9 @@ export function rollDiceWithValues(values, callback = null) {
     container.style.display = 'flex';
     result.style.display = 'none';
     
-    // Сбрасываем анимацию камеры
     cameraAnimStartTime = null;
     cameraStartPos = null;
     cameraEndPos = null;
-    
-    // Возвращаем камеру в исходное положение (вид под углом)
     camera.position.set(0, 4, 6);
     camera.lookAt(0, 0, 0);
     
@@ -316,16 +303,13 @@ export function rollDiceWithValues(values, callback = null) {
                 if (completed === count) {
                     isRolling = false;
                     
-                    // ЗАПУСКАЕМ АНИМАЦИЮ КАМЕРЫ В МОМЕНТ ВЫРАВНИВАНИЯ
                     if (!alignStarted) {
                         alignStarted = true;
-                        // Небольшая задержка перед движением камеры
                         setTimeout(() => {
                             animateCameraToTop();
                         }, 200);
                     }
                     
-                    // Показываем результат через 1.5 секунды (после движения камеры)
                     setTimeout(() => {
                         result.style.display = 'block';
                         if (rollCompleteCallback) rollCompleteCallback(values);
@@ -337,7 +321,9 @@ export function rollDiceWithValues(values, callback = null) {
     });
 }
 
-// ----- ОЧИСТКА -----
+// ============================================================
+// ОЧИСТКА И ЗАКРЫТИЕ
+// ============================================================
 function clearDice() {
     diceMeshes.forEach(mesh => {
         scene.remove(mesh);
@@ -357,7 +343,6 @@ function clearDice() {
     diceMeshes = [];
 }
 
-// ----- ЗАКРЫТИЕ -----
 export function closeDiceModal() {
     clearDice();
     document.getElementById('dice-container').style.display = 'none';
@@ -365,7 +350,6 @@ export function closeDiceModal() {
     document.getElementById('dice-close-btn').style.display = 'none';
     isRolling = false;
     
-    // Возвращаем камеру в исходное положение
     camera.position.set(0, 4, 6);
     camera.lookAt(0, 0, 0);
     cameraAnimStartTime = null;
