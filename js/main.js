@@ -425,17 +425,36 @@ function handleGameUpdate(data) {
     currentPlayerId = myPlayerId;
     isMyTurn = data.turn?.currentPlayer === myPlayerId;
     
-    // Проверяем готовность обоих игроков
-    const p1 = data.players?.player1;
-    const p2 = data.players?.player2;
-    if (p1 && p2 && p1.isReady && p2.isReady && !data.dungeon) {
-        // Оба игрока готовы, начинаем игру
-        initializeGame(currentGameId);
+    // Если игра ещё в лобби — обновляем информацию о игроках
+    if (data.status === 'lobby') {
+        updateLobbyPlayersInfo(data);
+        
+        // Проверяем готовность
+        const p1 = data.players?.player1;
+        const p2 = data.players?.player2;
+        const p1Ready = p1?.isReady || false;
+        const p2Ready = p2?.isReady || false;
+        const hasPlayer2 = p2 !== null && p2 !== undefined;
+        const bothReady = p1Ready && (!hasPlayer2 || p2Ready);
+        
+        if (bothReady) {
+            document.getElementById('lobby-status').textContent = '🚀 Все готовы! Начинаем игру...';
+            setTimeout(() => {
+                initializeGame(currentGameId);
+            }, 500);
+        } else {
+            document.getElementById('lobby-status').textContent = '⏳ Ожидание готовности...';
+        }
+        return;
     }
     
     // Если игра уже началась
     if (data.dungeon) {
-        // Проверяем, нужно ли перейти на следующий этаж (если текущий этаж зачищен и есть выход)
+        // Обновляем UI
+        updateUI(data, myPlayerId, isMyTurn);
+        checkAndStartCombat(data, myPlayerId);
+        
+        // Проверяем, нужно ли перейти на следующий этаж
         const dungeon = data.dungeon;
         const currentFloor = dungeon.currentFloor || 1;
         const floorRooms = getCurrentFloorRooms(dungeon);
@@ -443,18 +462,12 @@ function handleGameUpdate(data) {
             const room = dungeon.rooms[id];
             return room.isCleared || room.type === 'exit';
         });
-        // Проверяем, есть ли комната "exit" на текущем этаже и она очищена
         const exitRoom = floorRooms.find(id => dungeon.rooms[id].type === 'exit');
         if (allCleared && exitRoom && dungeon.rooms[exitRoom].isCleared) {
-            // Можно перейти на следующий этаж
-            // Показываем кнопку перехода в комнате (уже есть)
+            // Всё готово для перехода
         }
     }
-    
-    updateUI(data, myPlayerId, isMyTurn);
-    checkAndStartCombat(data, myPlayerId);
 }
-
 // ============================================================
 // 3. ИНИЦИАЛИЗАЦИЯ ИГРЫ (С БРОСКОМ КУБИКОВ)
 // ============================================================
