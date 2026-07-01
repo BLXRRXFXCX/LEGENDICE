@@ -429,13 +429,11 @@ async function initializeGame(gameId) {
         const player2Roll = hasPlayer2 ? (Math.floor(Math.random() * 6) + 1) : 0;
         const totalFloors = player1Roll + (hasPlayer2 ? player2Roll : 0);
         
-        // Логируем бросок этажей
         const floorLog = hasPlayer2 
             ? `🎲 Бросок этажей: Игрок 1: ${player1Roll}, Игрок 2: ${player2Roll} → Всего: ${Math.min(totalFloors, 12)} этажей`
             : `🎲 Бросок этажей: Игрок 1: ${player1Roll} → Всего: ${Math.min(totalFloors, 12)} этажей`;
         addLog(floorLog);
         
-        // Генерируем подземелье
         const dungeon = generateDungeon(Math.min(totalFloors, 12));
         
         // Получаем информацию о броске комнат (с первого этажа)
@@ -446,13 +444,15 @@ async function initializeGame(gameId) {
             addLog(`🎲 Бросок комнат: выпало ${roomRoll} → ${numRooms} комнат на этаже`);
         }
         
-        // Удаляем map (не используется в Firestore)
         delete dungeon.map;
         
         // Находим первую комнату первого этажа
         const firstRoom = Object.keys(dungeon.rooms).find(id => dungeon.rooms[id].floor === 1) || Object.keys(dungeon.rooms)[0];
+        // Открываем первую комнату
+        if (dungeon.rooms[firstRoom]) {
+            dungeon.rooms[firstRoom].isRevealed = true;
+        }
         
-        // Формируем порядок ходов
         const order = hasPlayer2 ? ['player1', 'player2'] : ['player1'];
         
         const updates = {
@@ -472,7 +472,6 @@ async function initializeGame(gameId) {
             }
         };
         
-        // Устанавливаем позиции игроков
         if (data.players.player1) {
             updates['players.player1.position'] = firstRoom;
             updates['players.player1.isReady'] = false;
@@ -485,7 +484,6 @@ async function initializeGame(gameId) {
         await updateGameState(gameId, updates);
     }
     
-    // Переключаем на экран игры
     document.getElementById('lobby-screen').style.display = 'none';
     document.getElementById('game-screen').style.display = 'flex';
     setupGameUI();
@@ -495,15 +493,29 @@ async function initializeGame(gameId) {
 // ============================================================
 
 function setupGameUI() {
-    document.getElementById('btn-roll').addEventListener('click', function() {
-        if (!isMyTurn) { alert('⏳ Сейчас не ваш ход!'); return; }
-        const room = getRoom(gameState.dungeon, gameState.players[currentPlayerId]?.position);
-        if (!room || room.isCleared || room.type === 'rest' || room.type === 'shop' || room.type === 'exit') {
-            alert('⏳ Здесь нельзя бросить кубики');
-            return;
-        }
-        handleRollDice();
-    });
+   document.getElementById('btn-roll').addEventListener('click', function() {
+    if (!isMyTurn) { alert('⏳ Сейчас не ваш ход!'); return; }
+    const room = getRoom(gameState.dungeon, gameState.players[currentPlayerId]?.position);
+    if (!room) {
+        alert('❌ Комната не найдена');
+        return;
+    }
+    // Разрешаем бросок только в боевых комнатах с живыми врагами
+    if (room.type !== 'combat' && room.type !== 'boss') {
+        alert('⏳ Здесь нельзя бросить кубики');
+        return;
+    }
+    if (room.isCleared) {
+        alert('⏳ Комната уже зачищена');
+        return;
+    }
+    const hasAlive = room.enemies?.some(e => e.isAlive);
+    if (!hasAlive) {
+        alert('⏳ В комнате нет врагов');
+        return;
+    }
+    handleRollDice();
+});
     
     document.getElementById('btn-inventory').addEventListener('click', showInventoryModal);
     document.getElementById('btn-map').addEventListener('click', showMapModal);
@@ -931,10 +943,65 @@ window.selectRoom = function(roomId) {
         return;
     }
     
-    if (!targetRoom.isRevealed && roomId !== player.position) {
-        alert('🔒 Комната ещё не открыта!');
+    // Проверяем, можно ли покинуть текущую комнату
+    if (currentRoom) {
+        const hasAliveEnemies = currentRoom.enemies && currentRoom.enemies.some(e => e.isAlive);
+        const isCombatRoom = currentRoom.type === 'combat' || currentRoom.type === 'boss';
+        
+        // Если это боевая комната и есть живые враги — нельзя выйти
+        if (isCombatRoom && hasAliveEnemies) {
+            alert('⚔️ Сначала победите всех врагов в этой комнате!');
+            return;
+        }
+        
+        // Если это комната выхода — можно выйти только если она пройдена
+        if (currentRoom.type === 'exit' && !currentRoom.isCleared) {
+            alert('🚪 Выход ещё не открыт! Зачистите все комнаты этажа.');
+            return;
+        }
+    }
+    
+    // Перемещаем игрока
+    player.position = roomId;
+    
+    if (!targetRoom.players) targetRoom.players = [];
+    if (!targetRoom.players.includes(currentPlayerId)) {
+        targetRoom.players.push(currentPlayerId);
+    }
+    
+    if (currentRoom && currentRoom.players) {
+        currentRoom.players = currentRoom.players.filter(id => id !== currentPlayerId);
+    }
+    
+    // Открываем комнату
+    if (!targetRoom.isRevealed) {
+        targetRoom.isRevealed = true;
+    }
+    
+    // Если в целевой комнате есть живые враги — начинаем бой
+    const hasTargetEnemies = targetRoom.enemies && targetRoom.enemies.some(e => e.isAlive);
+    if ((targetRoom.type === 'combat' || targetRoom.type === 'boss') && hasTargetEnemies) {
+        addLog(`⚔️ Бой в комнате ${targetRoom.id}!`);
+        gameState.turn.phase = 'roll';
+        gameState.turn.currentPlayer = currentPlayerId;
+        updateGameState(currentGameId, {
+            players: gameState.players,
+            dungeon: gameState.dungeon,
+            turn: gameState.turn
+        });
+        updateUI(gameState, currentPlayerId, true);
         return;
     }
+    
+    gameState.turn.phase = 'idle';
+    updateGameState(currentGameId, {
+        players: gameState.players,
+        dungeon: gameState.dungeon,
+        turn: gameState.turn
+    });
+    
+    updateUI(gameState, currentPlayerId, isMyTurn);
+};
     
     // ==========================================================
     // НОВАЯ ЛОГИКА ПРОВЕРКИ ВЫХОДА ИЗ КОМНАТЫ
