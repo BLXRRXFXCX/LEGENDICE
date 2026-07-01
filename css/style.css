@@ -1,17 +1,24 @@
 /* ============================================================
-   LEGENDICE - ПОЛНЫЙ СТИЛЬ (АДАПТИВНЫЙ)
+   LEGENDICE - ПОЛНЫЙ СТИЛЬ (АДАПТИВНЫЙ, PRESS START 2P)
    ============================================================ */
 
 /* ----- RESET & БАЗА ----- */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
-  font-family: 'Press Start 2P', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-family: 'Press Start 2P', 'Segoe UI', system-ui, -apple-system, sans-serif;
     background: #0B0E1A;
     color: #fff;
     height: 100dvh;
     overflow: hidden;
     user-select: none;
     touch-action: manipulation;
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+/* Все кнопки и поля ввода наследуют шрифт */
+button, input, select, textarea {
+    font-family: 'Press Start 2P', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 
 /* ----- ЗАГРУЗКА ----- */
@@ -33,13 +40,13 @@ body {
 }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 #loading-screen h1 {
-    font-size: 48px;
+    font-size: 32px;
     margin-top: 20px;
     background: linear-gradient(135deg, #f0c040, #ff8c00);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
-#loading-screen p { color: #888; margin-top: 10px; }
+#loading-screen p { color: #888; margin-top: 10px; font-size: 11px; }
 
 /* ----- ЛОББИ ----- */
 #lobby-screen {
@@ -61,11 +68,12 @@ body {
     overflow-y: auto;
 }
 .lobby-container h1 {
-    font-size: 32px;
+    font-size: 24px;
     background: linear-gradient(135deg, #f0c040, #ff8c00);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     margin-bottom: 16px;
+    font-family: 'Press Start 2P', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 #lobby-content {
     display: flex;
@@ -78,18 +86,19 @@ body {
     border: none;
     background: #1e2337;
     color: #fff;
-    font-size: 15px;
+    font-size: 10px;
     width: 100%;
 }
-#lobby-content input::placeholder { color: #666; }
+#lobby-content input::placeholder { color: #666; font-size: 9px; }
 #lobby-content button {
     padding: 12px;
     border-radius: 8px;
     border: none;
-    font-size: 15px;
+    font-size: 11px;
     font-weight: bold;
     cursor: pointer;
     transition: all 0.2s;
+    font-family: 'Press Start 2P', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 .btn-primary {
     background: linear-gradient(135deg, #f0c040, #e6a800);
@@ -123,9 +132,10 @@ body {
     border: 2px solid #2a2f45;
     background: #1e2337;
     color: #fff;
-    font-size: 20px;
+    font-size: 14px;
     cursor: pointer;
     transition: all 0.2s;
+    font-family: 'Press Start 2P', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 .class-btn:hover { border-color: #f0c040; }
 .class-btn.selected {
@@ -135,15 +145,16 @@ body {
 }
 .class-btn .class-name {
     display: block;
-    font-size: 11px;
+    font-size: 8px;
     color: #888;
-    margin-top: 2px;
+    margin-top: 4px;
 }
 #lobby-status {
     color: #888;
-    font-size: 13px;
+    font-size: 10px;
     margin-top: 6px;
     min-height: 20px;
+    font-family: 'Press Start 2P', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 #lobby-players-info {
     margin-top: 8px;
@@ -151,11 +162,18 @@ body {
     background: #1e2337;
     border-radius: 8px;
     border: 1px solid #2a2f45;
+    font-size: 9px;
+    font-family: 'Press Start 2P', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 #lobby-players-list {
     display: flex;
     flex-direction: column;
     gap: 4px;
+}
+#btn-ready {
+    font-family: 'Press Start 2P', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 12px;
+    padding: 14px;
 }
 
 /* ----- ИГРОВОЙ ЭКРАН (АДАПТИВ) ----- */
@@ -182,18 +200,20 @@ body {
     min-height: 32px;
 }
 .player-info {
-    font-size: 11px;
+    font-size: 8px;
     padding: 2px 6px;
     border-radius: 8px;
     background: #1e2337;
     border: 2px solid transparent;
+    font-family: 'Press Start 2P', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 .player-info.active { border-color: #f0c040; }
 .player-info.shadow { opacity: 0.4; }
 #turn-indicator {
-    font-size: 10px;
+    font-size: 8px;
     color: #f0c040;
     font-weight: bold;
+    font-family: 'Press Start 2P', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 
 /* Контейнер карты */
@@ -225,17 +245,18 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
+    font-size: 10px;
     cursor: pointer;
     flex-shrink: 0;
     position: relative;
+    font-family: 'Press Start 2P', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 .minimap-room:hover { border-color: #f0c040; }
 .minimap-room .room-players {
     position: absolute;
     bottom: -4px;
     right: -4px;
-    font-size: 8px;
+    font-size: 7px;
     background: #0B0E1A;
     border-radius: 50%;
     padding: 1px 2px;
@@ -262,9 +283,10 @@ body {
     min-height: 60px;
 }
 .room-title {
-    font-size: 16px;
+    font-size: 12px;
     font-weight: bold;
     margin-bottom: 4px;
+    font-family: 'Press Start 2P', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 .enemy-list {
     display: flex;
@@ -281,10 +303,11 @@ body {
     text-align: center;
     min-width: 60px;
     transition: all 0.2s;
+    font-family: 'Press Start 2P', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
-.enemy-card .enemy-emoji { font-size: 24px; }
-.enemy-card .enemy-name { font-size: 11px; color: #ddd; }
-.enemy-card .enemy-hp { font-size: 11px; color: #ff6b6b; }
+.enemy-card .enemy-emoji { font-size: 20px; }
+.enemy-card .enemy-name { font-size: 8px; color: #ddd; margin-top: 2px; }
+.enemy-card .enemy-hp { font-size: 8px; color: #ff6b6b; }
 .enemy-card.enemy-dead {
     opacity: 0.3;
     pointer-events: none;
@@ -322,7 +345,7 @@ body {
     min-height: 28px;
 }
 .slot-item {
-    font-size: 12px;
+    font-size: 10px;
     padding: 2px 4px;
     border-radius: 4px;
     background: #1e2337;
@@ -331,10 +354,11 @@ body {
     align-items: center;
     gap: 2px;
     white-space: nowrap;
+    font-family: 'Press Start 2P', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 .slot-item:hover { border-color: #f0c040; }
 .slot-item .slot-stat {
-    font-size: 9px;
+    font-size: 7px;
     color: #f0c040;
 }
 .slot-item.common { border-color: #888; }
@@ -357,9 +381,10 @@ body {
     flex: 1;
     overflow-y: auto;
     padding: 2px 6px;
-    font-size: 10px;
+    font-size: 8px;
     max-height: 30px;
     min-height: 20px;
+    font-family: 'Press Start 2P', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 .chat-msg {
     padding: 1px 0;
@@ -382,9 +407,10 @@ body {
     border: none;
     background: #1e2337;
     color: #fff;
-    font-size: 11px;
+    font-size: 8px;
+    font-family: 'Press Start 2P', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
-#chat-input::placeholder { color: #666; }
+#chat-input::placeholder { color: #666; font-size: 7px; }
 #chat-send {
     padding: 3px 10px;
     border-radius: 8px;
@@ -392,8 +418,9 @@ body {
     background: #f0c040;
     color: #0B0E1A;
     font-weight: bold;
-    font-size: 11px;
+    font-size: 9px;
     cursor: pointer;
+    font-family: 'Press Start 2P', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 #ping-bar {
     display: flex;
@@ -408,9 +435,10 @@ body {
     border: none;
     background: #1e2337;
     color: #fff;
-    font-size: 11px;
+    font-size: 10px;
     cursor: pointer;
     transition: all 0.2s;
+    font-family: 'Press Start 2P', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 .ping-btn:hover { background: #2a2f45; }
 
@@ -427,23 +455,27 @@ body {
     min-height: 36px;
 }
 #action-bar button {
-    padding: 4px 10px;
+    padding: 6px 12px;
     border-radius: 6px;
     border: none;
     font-weight: bold;
     cursor: pointer;
-    font-size: 11px;
+    font-size: 8px;
     flex: 0 1 auto;
     transition: all 0.2s;
+    font-family: 'Press Start 2P', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 #action-bar button:hover { transform: scale(1.03); }
 .btn-roll-main {
     background: linear-gradient(135deg, #f0c040, #e6a800);
     color: #0B0E1A;
+    font-size: 9px;
+    padding: 6px 14px;
 }
 #btn-inventory, #btn-map {
     background: #2a2f45;
     color: #fff;
+    font-size: 8px;
 }
 #btn-inventory:hover, #btn-map:hover { background: #3a3f5a; }
 
@@ -479,20 +511,24 @@ body {
     background: none;
     border: none;
     color: #888;
-    font-size: 22px;
+    font-size: 18px;
     cursor: pointer;
+    font-family: 'Press Start 2P', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 #modal-content .modal-close:hover { color: #fff; }
 #modal-content .modal-title {
-    font-size: 18px;
+    font-size: 14px;
     font-weight: bold;
     margin-bottom: 12px;
     text-align: center;
+    font-family: 'Press Start 2P', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 #modal-content .modal-body {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    font-size: 10px;
+    font-family: 'Press Start 2P', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 
 /* ----- 3D КОНТЕЙНЕР КУБИКОВ ----- */
@@ -500,183 +536,11 @@ body {
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 1000;
-    background: rgba(0,0,0,0.9);
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-}
-#dice-canvas-container {
-    width: 100%;
-    height: 65%;
-    max-height: 500px;
-}
-#dice-result {
-    position: absolute;
-    bottom: 12%;
-    left: 50%;
-    transform: translateX(-50%);
-    color: #fff;
-    font-size: 16px;
-    text-align: center;
-    background: rgba(0,0,0,0.85);
-    padding: 14px 20px;
-    border-radius: 12px;
-    border: 2px solid #f0c040;
-    max-width: 92%;
-    min-width: 180px;
-}
-#dice-result .dice-values {
-    font-size: 22px;
-    letter-spacing: 4px;
-}
-#dice-result .dice-combo {
-    color: #ffd700;
-    font-weight: bold;
-    margin-top: 4px;
-    font-size: 18px;
-}
-#dice-result .dice-combo-effect {
-    color: #88ccff;
-    font-size: 14px;
-}
-#dice-result .dice-actions {
-    margin-top: 10px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    justify-content: center;
-}
-#dice-result .dice-actions button {
-    padding: 5px 12px;
-    border-radius: 6px;
-    border: none;
-    font-weight: bold;
-    cursor: pointer;
-    font-size: 13px;
-}
-#dice-result .dice-actions .btn-attack {
-    background: #dc3545;
-    color: #fff;
-}
-#dice-result .dice-actions .btn-attack:hover { background: #c82333; }
-#dice-result .dice-actions .btn-defense {
-    background: #28a745;
-    color: #fff;
-}
-#dice-result .dice-actions .btn-defense:hover { background: #218838; }
-#dice-result .dice-actions .btn-confirm {
-    background: #f0c040;
-    color: #0B0E1A;
-    padding: 5px 16px;
-}
-#dice-result .dice-actions .btn-confirm:hover { background: #e6a800; }
-#dice-result .dice-stats {
-    margin-top: 6px;
-    font-size: 13px;
-    color: #aaa;
-}
-#dice-result .dice-stats span { margin: 0 6px; }
-#dice-result .dice-stats .stat-attack { color: #ff6b6b; }
-#dice-result .dice-stats .stat-defense { color: #4caf50; }
-
-#dice-close-btn {
-    position: absolute;
-    top: 16px;
-    right: 16px;
-    padding: 8px 16px;
-    border-radius: 8px;
-    border: none;
-    background: #dc3545;
-    color: #fff;
-    font-weight: bold;
-    cursor: pointer;
-    z-index: 10;
-    display: none;
-}
-#dice-close-btn:hover { background: #c82333; }
-
-/* ----- АДАПТИВ ДЛЯ МОБИЛЬНЫХ (ТЕЛЕФОНЫ) ----- */
-@media (max-width: 480px) {
-    .lobby-container { padding: 20px 16px; }
-    .lobby-container h1 { font-size: 26px; }
-    
-    #top-bar { padding: 3px 6px; min-height: 28px; }
-    .player-info { font-size: 10px; padding: 2px 4px; }
-    #turn-indicator { font-size: 9px; }
-    
-    .minimap-room { min-width: 26px; height: 26px; font-size: 10px; }
-    .minimap-room .room-players { font-size: 7px; bottom: -3px; right: -3px; }
-    
-    .room-title { font-size: 14px; }
-    .enemy-card { padding: 4px 8px; min-width: 50px; }
-    .enemy-card .enemy-emoji { font-size: 20px; }
-    .enemy-card .enemy-name { font-size: 10px; }
-    .enemy-card .enemy-hp { font-size: 10px; }
-    
-    #slots-bar { padding: 2px 3px; min-height: 24px; gap: 2px; }
-    .slot-item { font-size: 10px; padding: 1px 3px; }
-    .slot-item .slot-stat { font-size: 8px; }
-    
-    #chat-container { max-height: 65px; }
-    #chat-messages { max-height: 25px; font-size: 9px; min-height: 16px; padding: 1px 4px; }
-    #chat-input { font-size: 10px; padding: 2px 6px; }
-    #chat-send { font-size: 10px; padding: 2px 8px; }
-    .ping-btn { font-size: 10px; padding: 2px 5px; }
-    
-    #action-bar { padding: 3px 6px; min-height: 30px; gap: 4px; }
-    #action-bar button { padding: 3px 8px; font-size: 10px; }
-    
-    #dice-result { font-size: 14px; padding: 10px 14px; }
-    #dice-result .dice-values { font-size: 18px; letter-spacing: 3px; }
-    #dice-result .dice-combo { font-size: 16px; }
-    #dice-result .dice-actions button { font-size: 12px; padding: 4px 10px; }
-    
-    .class-select { grid-template-columns: 1fr 1fr; gap: 4px; }
-    .class-btn { padding: 6px 4px; font-size: 16px; }
-    .class-btn .class-name { font-size: 10px; }
-}
-
-/* ----- АДАПТИВ ДЛЯ ПЛАНШЕТОВ ----- */
-@media (min-width: 481px) and (max-width: 768px) {
-    .lobby-container { padding: 28px 24px; }
-    .lobby-container h1 { font-size: 30px; }
-    
-    .minimap-room { min-width: 32px; height: 32px; font-size: 13px; }
-    .enemy-card { padding: 8px 12px; min-width: 65px; }
-    .enemy-card .enemy-emoji { font-size: 28px; }
-    
-    #chat-container { max-height: 90px; }
-    #action-bar button { padding: 5px 14px; font-size: 12px; }
-}
-
-/* ----- ВСПОМОГАТЕЛЬНЫЕ КЛАССЫ ----- */
-.hidden { display: none !important; }
-.flex-center { display: flex; align-items: center; justify-content: center; }
-.gap-10 { gap: 10px; }
-.mt-10 { margin-top: 10px; }
-.mb-10 { margin-bottom: 10px; }
-.text-gold { color: #f0c040; }
-.text-red { color: #ff6b6b; }
-.text-green { color: #4caf50; }
-.text-muted { color: #888; }
-
-/* ============================================================
-   ФИКСЫ ДЛЯ МОБИЛЬНЫХ (ЦЕНТРИРОВАНИЕ КУБИКОВ)
-   ============================================================ */
-
-#dice-container {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
     width: 100vw;
     height: 100vh;
     z-index: 1000;
     background: rgba(0, 0, 0, 0.9);
+    display: none;
     flex-direction: column;
     align-items: center;
     justify-content: center;
@@ -708,47 +572,72 @@ body {
     left: 50%;
     transform: translateX(-50%);
     color: #fff;
-    font-size: 18px;
+    font-size: 14px;
     text-align: center;
     background: rgba(0, 0, 0, 0.85);
-    padding: 14px 24px;
+    padding: 12px 20px;
     border-radius: 12px;
     border: 2px solid #f0c040;
     max-width: 92%;
     min-width: 180px;
     width: auto;
     box-sizing: border-box;
+    font-family: 'Press Start 2P', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
-
-/* Мобильная адаптация */
-@media (max-width: 480px) {
-    #dice-canvas-container {
-        height: 55vh;
-        max-height: 350px;
-        width: 95%;
-    }
-    
-    #dice-result {
-        font-size: 14px;
-        padding: 10px 16px;
-        bottom: 6%;
-        min-width: 140px;
-    }
-    
-    #dice-result .dice-values {
-        font-size: 18px;
-        letter-spacing: 3px;
-    }
-    
-    #dice-result .dice-combo {
-        font-size: 15px;
-    }
-    
-    #dice-result .dice-actions button {
-        font-size: 12px;
-        padding: 4px 10px;
-    }
+#dice-result .dice-values {
+    font-size: 18px;
+    letter-spacing: 4px;
 }
+#dice-result .dice-combo {
+    color: #ffd700;
+    font-weight: bold;
+    margin-top: 4px;
+    font-size: 14px;
+}
+#dice-result .dice-combo-effect {
+    color: #88ccff;
+    font-size: 11px;
+}
+#dice-result .dice-actions {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    justify-content: center;
+}
+#dice-result .dice-actions button {
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 10px;
+    font-family: 'Press Start 2P', 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+#dice-result .dice-actions .btn-attack {
+    background: #dc3545;
+    color: #fff;
+}
+#dice-result .dice-actions .btn-attack:hover { background: #c82333; }
+#dice-result .dice-actions .btn-defense {
+    background: #28a745;
+    color: #fff;
+}
+#dice-result .dice-actions .btn-defense:hover { background: #218838; }
+#dice-result .dice-actions .btn-confirm {
+    background: #f0c040;
+    color: #0B0E1A;
+    padding: 4px 14px;
+}
+#dice-result .dice-actions .btn-confirm:hover { background: #e6a800; }
+#dice-result .dice-stats {
+    margin-top: 6px;
+    font-size: 10px;
+    color: #aaa;
+}
+#dice-result .dice-stats span { margin: 0 6px; }
+#dice-result .dice-stats .stat-attack { color: #ff6b6b; }
+#dice-result .dice-stats .stat-defense { color: #4caf50; }
 
 #dice-close-btn {
     position: absolute;
@@ -763,4 +652,111 @@ body {
     cursor: pointer;
     z-index: 10;
     display: none;
+    font-family: 'Press Start 2P', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 10px;
 }
+#dice-close-btn:hover { background: #c82333; }
+
+/* ----- АДАПТИВ ДЛЯ МОБИЛЬНЫХ (ТЕЛЕФОНЫ) ----- */
+@media (max-width: 480px) {
+    .lobby-container { padding: 20px 16px; }
+    .lobby-container h1 { font-size: 20px; }
+    
+    #top-bar { padding: 3px 6px; min-height: 28px; }
+    .player-info { font-size: 7px; padding: 2px 4px; }
+    #turn-indicator { font-size: 7px; }
+    
+    .minimap-room { min-width: 26px; height: 26px; font-size: 8px; }
+    .minimap-room .room-players { font-size: 6px; bottom: -3px; right: -3px; }
+    
+    .room-title { font-size: 10px; }
+    .enemy-card { padding: 4px 8px; min-width: 50px; }
+    .enemy-card .enemy-emoji { font-size: 16px; }
+    .enemy-card .enemy-name { font-size: 7px; }
+    .enemy-card .enemy-hp { font-size: 7px; }
+    
+    #slots-bar { padding: 2px 3px; min-height: 24px; gap: 2px; }
+    .slot-item { font-size: 8px; padding: 1px 3px; }
+    .slot-item .slot-stat { font-size: 6px; }
+    
+    #chat-container { max-height: 65px; }
+    #chat-messages { max-height: 25px; font-size: 7px; min-height: 16px; padding: 1px 4px; }
+    #chat-input { font-size: 7px; padding: 2px 6px; }
+    #chat-send { font-size: 8px; padding: 2px 8px; }
+    .ping-btn { font-size: 8px; padding: 2px 5px; }
+    
+    #action-bar { padding: 3px 6px; min-height: 30px; gap: 4px; }
+    #action-bar button { padding: 4px 8px; font-size: 7px; }
+    .btn-roll-main { font-size: 8px; padding: 4px 10px; }
+    
+    #dice-container {
+        width: 100vw;
+        height: 100vh;
+    }
+    
+    #dice-canvas-container {
+        height: 55vh;
+        max-height: 350px;
+        width: 95%;
+    }
+    
+    #dice-result {
+        font-size: 11px;
+        padding: 8px 12px;
+        bottom: 6%;
+        min-width: 120px;
+    }
+    
+    #dice-result .dice-values {
+        font-size: 14px;
+        letter-spacing: 3px;
+    }
+    
+    #dice-result .dice-combo {
+        font-size: 11px;
+    }
+    
+    #dice-result .dice-actions button {
+        font-size: 8px;
+        padding: 3px 8px;
+    }
+    
+    #dice-close-btn {
+        font-size: 8px;
+        padding: 6px 12px;
+        top: 12px;
+        right: 12px;
+    }
+    
+    .class-select { grid-template-columns: 1fr 1fr; gap: 4px; }
+    .class-btn { padding: 6px 4px; font-size: 12px; }
+    .class-btn .class-name { font-size: 7px; }
+    
+    #lobby-content button { font-size: 9px; padding: 10px; }
+    #lobby-content input { font-size: 8px; padding: 8px 10px; }
+    #btn-ready { font-size: 10px; padding: 12px; }
+}
+
+/* ----- АДАПТИВ ДЛЯ ПЛАНШЕТОВ ----- */
+@media (min-width: 481px) and (max-width: 768px) {
+    .lobby-container { padding: 28px 24px; }
+    .lobby-container h1 { font-size: 22px; }
+    
+    .minimap-room { min-width: 32px; height: 32px; font-size: 11px; }
+    .enemy-card { padding: 8px 12px; min-width: 65px; }
+    .enemy-card .enemy-emoji { font-size: 24px; }
+    
+    #chat-container { max-height: 90px; }
+    #action-bar button { padding: 5px 14px; font-size: 9px; }
+}
+
+/* ----- ВСПОМОГАТЕЛЬНЫЕ КЛАССЫ ----- */
+.hidden { display: none !important; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.gap-10 { gap: 10px; }
+.mt-10 { margin-top: 10px; }
+.mb-10 { margin-bottom: 10px; }
+.text-gold { color: #f0c040; }
+.text-red { color: #ff6b6b; }
+.text-green { color: #4caf50; }
+.text-muted { color: #888; }
