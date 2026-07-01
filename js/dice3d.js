@@ -8,8 +8,6 @@ let diceMeshes = [];
 let isRolling = false;
 let animationId = null;
 let rollCompleteCallback = null;
-let positions = [];
-
 // ----- ИНИЦИАЛИЗАЦИЯ 3D СЦЕНЫ -----
 export function initDice3D() {
     const container = document.getElementById('dice-canvas-container');
