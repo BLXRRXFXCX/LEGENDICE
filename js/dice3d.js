@@ -1,5 +1,5 @@
 // ============================================================
-// LEGENDICE - dice3d.js (ФИНАЛЬНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ)
+// LEGENDICE - dice3d.js (С РИСОВАНИЕМ ТОЧЕК)
 // ============================================================
 
 let scene, camera, renderer;
@@ -142,9 +142,35 @@ function animateCameraToTop() {
 }
 
 // ============================================================
-// ТЕКСТУРА С ЭМОДЗИ (УМЕНЬШЕННЫЙ ШРИФТ 180px, УВЕЛИЧЕННАЯ РАМКА)
+// РИСОВАНИЕ ТОЧЕК НА ГРАНЯХ КУБИКА
 // ============================================================
-function createFaceTexture(emoji, bgColor = '#ffffff') {
+function drawDiceDots(ctx, value) {
+    const cx = 64, cy = 64;
+    const radius = 12;
+    const spacing = 28;
+    const offset = spacing / 2;
+    
+    ctx.fillStyle = '#000';
+    
+    const positions = {
+        1: [[0, 0]],
+        2: [[-offset, -offset], [offset, offset]],
+        3: [[-offset, -offset], [0, 0], [offset, offset]],
+        4: [[-offset, -offset], [offset, -offset], [-offset, offset], [offset, offset]],
+        5: [[-offset, -offset], [offset, -offset], [0, 0], [-offset, offset], [offset, offset]],
+        6: [[-offset, -offset], [offset, -offset], [-offset, 0], [offset, 0], [-offset, offset], [offset, offset]]
+    };
+    
+    const dots = positions[value] || [];
+    dots.forEach(([dx, dy]) => {
+        ctx.beginPath();
+        ctx.arc(cx + dx, cy + dy, radius, 0, Math.PI * 2);
+        ctx.fill();
+    });
+}
+
+// ----- ТЕКСТУРА С ТОЧКАМИ -----
+function createFaceTexture(value, bgColor = '#ffffff') {
     const canvas = document.createElement('canvas');
     canvas.width = 128;
     canvas.height = 128;
@@ -157,22 +183,18 @@ function createFaceTexture(emoji, bgColor = '#ffffff') {
     ctx.lineWidth = 2;
     ctx.strokeRect(2, 2, 124, 124);
     
-    ctx.font = '180px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#000';
-    ctx.fillText(emoji, 64, 64);
+    drawDiceDots(ctx, value);
     
     return new THREE.CanvasTexture(canvas);
 }
 
 // ============================================================
-// ПРАВИЛЬНЫЕ ВРАЩЕНИЯ (ИСПРАВЛЕНЫ ДЛЯ 1 И 2)
+// ПРАВИЛЬНЫЕ ВРАЩЕНИЯ ДЛЯ КАЖДОЙ ГРАНИ
 // ============================================================
 function getRotationForValue(value) {
     switch(value) {
-        case 1: return { x: 0, y: 0, z: Math.PI / 2 };   // грань 0 (+x)
-        case 2: return { x: 0, y: 0, z: -Math.PI / 2 };  // грань 1 (-x)
+        case 1: return { x: 0, y: 0, z: Math.PI / 2 };
+        case 2: return { x: 0, y: 0, z: -Math.PI / 2 };
         case 3: return { x: 0, y: 0, z: 0 };
         case 4: return { x: Math.PI, y: 0, z: 0 };
         case 5: return { x: -Math.PI / 2, y: 0, z: 0 };
@@ -188,18 +210,18 @@ function createDiceMesh(value) {
     const size = 0.9;
     const geometry = new THREE.BoxGeometry(size, size, size);
     
-    const emojis = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
-    const materials = emojis.map((emoji, index) => {
-        const isSelected = (index + 1) === value;
-        const texture = createFaceTexture(emoji, isSelected ? '#ffffaa' : '#f0f0ff');
-        return new THREE.MeshStandardMaterial({
+    const materials = [];
+    for (let i = 0; i < 6; i++) {
+        const isSelected = (i + 1) === value;
+        const texture = createFaceTexture(value, isSelected ? '#ffffaa' : '#f0f0ff');
+        materials.push(new THREE.MeshStandardMaterial({
             map: texture,
             roughness: 0.3,
             metalness: 0.1,
             emissive: isSelected ? new THREE.Color(0x444422) : new THREE.Color(0x000000),
             emissiveIntensity: isSelected ? 0.3 : 0
-        });
-    });
+        }));
+    }
     
     const mesh = new THREE.Mesh(geometry, materials);
     mesh.castShadow = true;
