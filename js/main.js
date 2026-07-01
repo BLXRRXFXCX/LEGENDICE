@@ -423,19 +423,37 @@ async function initializeGame(gameId) {
     
     if (!data.dungeon) {
         const hasPlayer2 = data.players?.player2 !== null && data.players?.player2 !== undefined;
-        const playerCount = hasPlayer2 ? 2 : 1;
         
-        // Бросок кубиков для определения этажей
+        // Бросок кубиков для определения количества этажей
         const player1Roll = Math.floor(Math.random() * 6) + 1;
         const player2Roll = hasPlayer2 ? (Math.floor(Math.random() * 6) + 1) : 0;
         const totalFloors = player1Roll + (hasPlayer2 ? player2Roll : 0);
         
-        addLog(`🎲 Бросок этажей: Игрок 1: ${player1Roll}${hasPlayer2 ? `, Игрок 2: ${player2Roll}` : ''} → Всего: ${Math.min(totalFloors, 12)} этажей`);
+        // Логируем бросок этажей
+        const floorLog = hasPlayer2 
+            ? `🎲 Бросок этажей: Игрок 1: ${player1Roll}, Игрок 2: ${player2Roll} → Всего: ${Math.min(totalFloors, 12)} этажей`
+            : `🎲 Бросок этажей: Игрок 1: ${player1Roll} → Всего: ${Math.min(totalFloors, 12)} этажей`;
+        addLog(floorLog);
         
+        // Генерируем подземелье
         const dungeon = generateDungeon(Math.min(totalFloors, 12));
+        
+        // Получаем информацию о броске комнат (с первого этажа)
+        const firstFloorRooms = Object.keys(dungeon.rooms).filter(id => dungeon.rooms[id].floor === 1);
+        if (firstFloorRooms.length > 0) {
+            const roomRoll = dungeon.rooms._meta?.roomRoll || '?';
+            const numRooms = dungeon.rooms._meta?.numRooms || firstFloorRooms.length;
+            addLog(`🎲 Бросок комнат: выпало ${roomRoll} → ${numRooms} комнат на этаже`);
+        }
+        
+        // Удаляем map (не используется в Firestore)
         delete dungeon.map;
         
+        // Находим первую комнату первого этажа
         const firstRoom = Object.keys(dungeon.rooms).find(id => dungeon.rooms[id].floor === 1) || Object.keys(dungeon.rooms)[0];
+        
+        // Формируем порядок ходов
+        const order = hasPlayer2 ? ['player1', 'player2'] : ['player1'];
         
         const updates = {
             dungeon: dungeon,
@@ -443,7 +461,7 @@ async function initializeGame(gameId) {
             turn: {
                 currentPlayer: 'player1',
                 phase: 'idle',
-                order: hasPlayer2 ? ['player1', 'player2'] : ['player1'],
+                order: order,
                 index: 0,
                 diceValues: [],
                 selectedAttack: [],
@@ -454,27 +472,24 @@ async function initializeGame(gameId) {
             }
         };
         
+        // Устанавливаем позиции игроков
         if (data.players.player1) {
             updates['players.player1.position'] = firstRoom;
-        }
-        if (data.players.player2) {
-            updates['players.player2.position'] = firstRoom;
-        }
-        if (data.players.player1) {
             updates['players.player1.isReady'] = false;
         }
         if (data.players.player2) {
+            updates['players.player2.position'] = firstRoom;
             updates['players.player2.isReady'] = false;
         }
         
         await updateGameState(gameId, updates);
     }
     
+    // Переключаем на экран игры
     document.getElementById('lobby-screen').style.display = 'none';
     document.getElementById('game-screen').style.display = 'flex';
     setupGameUI();
 }
-
 // ============================================================
 // 6. НАСТРОЙКА UI
 // ============================================================
