@@ -512,10 +512,10 @@ export function showDiceModal(diceValues, comboName, comboEffect) {
                     </button>
                 `).join('')}
             </div>
-            <div class="dice-stats">
-                <span class="stat-attack">⚔️ Атака: ${attackSum}</span>
-                <span class="stat-defense">🛡️ Защита: ${defenseSum}</span>
-            </div>
+           <div style="margin-top: 8px; font-size: 13px; color: #aaa; display: flex; flex-direction: column; gap: 2px; text-align: center;">
+    <div class="stat-attack" style="color: #ff6b6b;">⚔️ Атака: ${attackSum}</div>
+    <div class="stat-defense" style="color: #4caf50;">🛡️ Защита: ${defenseSum}</div>
+</div>
             <div style="margin-top:10px;">
                 <button class="btn-confirm" id="dice-confirm" style="padding:10px 30px; border-radius:8px; border:none; font-weight:bold; cursor:pointer;">
                     ✅ Подтвердить
