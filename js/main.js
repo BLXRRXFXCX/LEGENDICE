@@ -1,7 +1,8 @@
 // ============================================================
-// LEGENDICE - main.js (FULL VERSION)
+// LEGENDICE - main.js (ПОЛНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ)
 // ============================================================
 
+// ----- ИМПОРТЫ -----
 import './firebase.js';
 import {
     signInAnonymously,
@@ -15,7 +16,10 @@ import {
     sendPing,
     setPlayerReady,
     updatePlayerPosition,
-    getGameData
+    getGameData,
+    updatePlayerName,
+    updatePlayerClass,
+    deleteGame
 } from './firebase.js';
 
 import {
@@ -31,7 +35,11 @@ import {
 
 import { initDice3D, rollDiceWithValues, closeDiceModal } from './dice3d.js';
 
-import { generateDungeon, generateFloorsFromDice, getRoom, getCurrentFloorRooms, isFloorCleared, goToNextFloor, updateRoomAfterCombat, openChest, buyShopItem } from './game.js';
+import {
+    generateDungeon, getRoom, getCurrentFloorRooms,
+    isFloorCleared, goToNextFloor, updateRoomAfterCombat,
+    openChest, buyShopItem, generateFloorsFromDice
+} from './game.js';
 
 // ----- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ -----
 let gameState = null;
@@ -47,10 +55,6 @@ let selectedAllyId = null;
 
 window.currentDiceValues = [];
 window.diceSelections = {};
-
-// ----- СОСТОЯНИЕ ЛОББИ -----
-let isReady = false;
-let bothReady = false;
 
 // ============================================================
 // 1. ИНИЦИАЛИЗАЦИЯ
@@ -114,7 +118,6 @@ function showLobbyScreen() {
                 🆔 ID: <span id="lobby-player-id">${getCurrentUser()?.uid?.slice(0,8) || '...'}</span>
             </div>
             
-            <!-- БЛОК ВЫБОРА КЛАССА -->
             <div class="class-select" id="class-select">
                 ${Object.entries(CLASSES).map(([key, cls]) => `
                     <button class="class-btn" data-class="${key}">
@@ -125,28 +128,23 @@ function showLobbyScreen() {
             </div>
             <input type="text" id="player-name" placeholder="Ваше имя..." maxlength="20" value="Игрок">
             
-            <!-- КНОПКИ СОЗДАНИЯ / ПОДКЛЮЧЕНИЯ -->
             <button class="btn-primary" id="btn-create-game">🎲 Создать игру</button>
             <div style="display:flex; gap:8px; margin-top:4px;">
                 <input type="text" id="join-game-id" placeholder="Код игры..." style="flex:1; padding:10px; border-radius:8px; border:none; background:#1e2337; color:#fff; font-size:14px;">
                 <button class="btn-secondary" id="btn-join-game">Подключиться</button>
             </div>
             
-            <!-- СТАТУС ЛОББИ -->
             <div id="lobby-status" style="color:#888; font-size:14px; margin-top:8px; min-height:20px;">👋 Выберите класс и создайте игру</div>
             
-            <!-- ИНФОРМАЦИЯ ОБ ИГРОКАХ В ЛОББИ -->
             <div id="lobby-players-info" style="display:none; margin-top:10px; padding:12px; background:#1e2337; border-radius:10px; border:1px solid #2a2f45;">
                 <div style="font-size:13px; color:#888; margin-bottom:8px;">👥 Игроки в лобби:</div>
                 <div id="lobby-players-list" style="display:flex; flex-direction:column; gap:6px;"></div>
             </div>
             
-            <!-- КНОПКА "Я ГОТОВ" -->
             <button id="btn-ready" class="btn-success" style="display:none; padding:14px; border-radius:10px; border:none; font-weight:bold; cursor:pointer; margin-top:10px; font-size:16px;">
                 ✅ Я готов
             </button>
             
-            <!-- ССЫЛКА ДЛЯ ПРИГЛАШЕНИЯ -->
             <div id="invite-section" style="display:none; margin-top:8px; padding:10px; background:#1e2337; border-radius:8px;">
                 <div style="color:#888; font-size:11px;">🔗 Ссылка для приглашения:</div>
                 <div style="display:flex; gap:6px; align-items:center; margin-top:4px;">
@@ -163,7 +161,6 @@ function showLobbyScreen() {
             document.querySelectorAll('.class-btn').forEach(b => b.classList.remove('selected'));
             this.classList.add('selected');
             myClass = this.dataset.class;
-            // Если уже в игре — обновляем класс в Firebase
             if (currentGameId && currentPlayerId) {
                 updatePlayerClass(currentGameId, currentPlayerId, myClass);
             }
@@ -192,7 +189,6 @@ function showLobbyScreen() {
             currentPlayerId = 'player1';
             if (status) status.textContent = `✅ Игра создана! Код: ${gameId}`;
             
-            // Показываем ссылку
             const inviteSection = document.getElementById('invite-section');
             const inviteInput = document.getElementById('invite-link-input');
             if (inviteSection && inviteInput) {
@@ -210,17 +206,13 @@ function showLobbyScreen() {
                 });
             }
             
-            // Показываем информацию о лобби и кнопку готовности
             document.getElementById('lobby-players-info').style.display = 'block';
             document.getElementById('btn-ready').style.display = 'block';
-            document.getElementById('btn-ready').textContent = '✅ Я готов';
             document.getElementById('btn-ready').disabled = false;
+            document.getElementById('btn-ready').textContent = '✅ Я готов';
             
             if (unsubscribeGame) unsubscribeGame();
-            unsubscribeGame = subscribeToGame(gameId, handleLobbyUpdate);
-            
-            // Обновляем информацию о игроках
-            updateLobbyPlayersInfo(data);
+            unsubscribeGame = subscribeToGame(gameId, handleGameUpdate);
             
         } catch (error) {
             console.error(error);
@@ -245,13 +237,11 @@ function showLobbyScreen() {
             
             document.getElementById('lobby-players-info').style.display = 'block';
             document.getElementById('btn-ready').style.display = 'block';
-            document.getElementById('btn-ready').textContent = '✅ Я готов';
             document.getElementById('btn-ready').disabled = false;
+            document.getElementById('btn-ready').textContent = '✅ Я готов';
             
             if (unsubscribeGame) unsubscribeGame();
-            unsubscribeGame = subscribeToGame(gameId, handleLobbyUpdate);
-            
-            updateLobbyPlayersInfo(data);
+            unsubscribeGame = subscribeToGame(gameId, handleGameUpdate);
             
         } catch (error) {
             console.error(error);
@@ -263,141 +253,19 @@ function showLobbyScreen() {
     document.getElementById('btn-ready').addEventListener('click', async function() {
         if (!currentGameId || !currentPlayerId) return;
         
-        // Обновляем ник и класс перед готовностью
         const name = document.getElementById('player-name')?.value || 'Игрок';
         await updatePlayerName(currentGameId, currentPlayerId, name);
         await updatePlayerClass(currentGameId, currentPlayerId, myClass);
         
-        // Отправляем готовность
         await setPlayerReady(currentGameId, currentPlayerId, true);
         this.disabled = true;
-        this.textContent = '⏳ Ожидание других игроков...';
+        this.textContent = '⏳ Ожидание других...';
         document.getElementById('lobby-status').textContent = '⏳ Ожидание готовности других игроков...';
     });
 }
 
 // ============================================================
-// 2.1. ОБНОВЛЕНИЕ ЛОББИ (ПОКАЗ ИГРОКОВ)
-// ============================================================
-
-let lobbyData = null;
-
-function handleLobbyUpdate(data) {
-    if (!data) return;
-    lobbyData = data;
-    updateLobbyPlayersInfo(data);
-    
-    // Проверяем, все ли готовы
-    const players = data.players;
-    const player1 = players?.player1;
-    const player2 = players?.player2;
-    const p1Ready = player1?.isReady || false;
-    const p2Ready = player2?.isReady || false;
-    
-    // Если оба игрока готовы (или только один, а второго нет) — запускаем игру
-    const hasPlayer2 = player2 !== null && player2 !== undefined;
-    const bothReady = p1Ready && (!hasPlayer2 || p2Ready);
-    
-    if (bothReady && data.status === 'lobby') {
-        // Запускаем игру
-        document.getElementById('lobby-status').textContent = '🚀 Все готовы! Начинаем игру...';
-        setTimeout(() => {
-            initializeGame(currentGameId);
-        }, 500);
-    }
-}
-
-function updateLobbyPlayersInfo(data) {
-    const container = document.getElementById('lobby-players-list');
-    if (!container) return;
-    
-    const players = data?.players || {};
-    const player1 = players.player1;
-    const player2 = players.player2;
-    
-    let html = '';
-    
-    // Игрок 1 (хост)
-    if (player1) {
-        const classEmoji = CLASSES[player1.class]?.emoji || '👤';
-        const className = CLASSES[player1.class]?.name || 'Не выбран';
-        const readyStatus = player1.isReady ? '✅ Готов' : '⏳ Не готов';
-        const isMe = player1.uid === getCurrentUser()?.uid;
-        html += `
-            <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; background:${isMe ? '#2a2f45' : '#1a1f30'}; border-radius:8px; border:${isMe ? '1px solid #f0c040' : '1px solid transparent'};">
-                <div>
-                    <span style="font-size:20px;">${classEmoji}</span>
-                    <span style="font-weight:bold; margin-left:6px;">${player1.name || 'Игрок 1'}</span>
-                    <span style="color:#888; font-size:12px; margin-left:6px;">(${className})</span>
-                    ${isMe ? ' <span style="color:#f0c040; font-size:11px;">(Вы)</span>' : ''}
-                </div>
-                <div style="font-size:13px; color:${player1.isReady ? '#4caf50' : '#888'};">${readyStatus}</div>
-            </div>
-        `;
-    } else {
-        html += `
-            <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; background:#1a1f30; border-radius:8px; opacity:0.4;">
-                <div>
-                    <span style="font-size:20px;">👤</span>
-                    <span style="margin-left:6px;">Ожидание игрока...</span>
-                </div>
-                <div style="font-size:13px; color:#888;">⏳ Не подключен</div>
-            </div>
-        `;
-    }
-    
-    // Игрок 2
-    if (player2) {
-        const classEmoji = CLASSES[player2.class]?.emoji || '👤';
-        const className = CLASSES[player2.class]?.name || 'Не выбран';
-        const readyStatus = player2.isReady ? '✅ Готов' : '⏳ Не готов';
-        const isMe = player2.uid === getCurrentUser()?.uid;
-        html += `
-            <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; background:${isMe ? '#2a2f45' : '#1a1f30'}; border-radius:8px; border:${isMe ? '1px solid #f0c040' : '1px solid transparent'};">
-                <div>
-                    <span style="font-size:20px;">${classEmoji}</span>
-                    <span style="font-weight:bold; margin-left:6px;">${player2.name || 'Игрок 2'}</span>
-                    <span style="color:#888; font-size:12px; margin-left:6px;">(${className})</span>
-                    ${isMe ? ' <span style="color:#f0c040; font-size:11px;">(Вы)</span>' : ''}
-                </div>
-                <div style="font-size:13px; color:${player2.isReady ? '#4caf50' : '#888'};">${readyStatus}</div>
-            </div>
-        `;
-    } else {
-        html += `
-            <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; background:#1a1f30; border-radius:8px; opacity:0.4;">
-                <div>
-                    <span style="font-size:20px;">👤</span>
-                    <span style="margin-left:6px;">Свободный слот</span>
-                </div>
-                <div style="font-size:13px; color:#888;">⏳ Ожидание</div>
-            </div>
-        `;
-    }
-    
-    container.innerHTML = html;
-}
-
-// ============================================================
-// 2.2. ОБНОВЛЕНИЕ НИКА И КЛАССА В FIREBASE
-// ============================================================
-
-export async function updatePlayerName(gameId, playerId, name) {
-    const gameRef = firebase.firestore().collection('games').doc(gameId);
-    const updateData = {};
-    updateData[`players.${playerId}.name`] = name;
-    return gameRef.update(updateData);
-}
-
-export async function updatePlayerClass(gameId, playerId, className) {
-    const gameRef = firebase.firestore().collection('games').doc(gameId);
-    const updateData = {};
-    updateData[`players.${playerId}.class`] = className;
-    return gameRef.update(updateData);
-}
-
-// ============================================================
-// 3. ОБРАБОТКА ОБНОВЛЕНИЙ (Firebase)
+// 3. ОБРАБОТКА ОБНОВЛЕНИЙ (ЛОББИ + ИГРА)
 // ============================================================
 
 function handleGameUpdate(data) {
@@ -425,71 +293,144 @@ function handleGameUpdate(data) {
     currentPlayerId = myPlayerId;
     isMyTurn = data.turn?.currentPlayer === myPlayerId;
     
-    // Если игра ещё в лобби — обновляем информацию о игроках
+    // ==========================================================
+    // РЕЖИМ ЛОББИ
+    // ==========================================================
     if (data.status === 'lobby') {
         updateLobbyPlayersInfo(data);
         
-        // Проверяем готовность
         const p1 = data.players?.player1;
         const p2 = data.players?.player2;
         const p1Ready = p1?.isReady || false;
         const p2Ready = p2?.isReady || false;
         const hasPlayer2 = p2 !== null && p2 !== undefined;
-        const bothReady = p1Ready && (!hasPlayer2 || p2Ready);
+        const allReady = p1Ready && (!hasPlayer2 || p2Ready);
         
-        if (bothReady) {
-            document.getElementById('lobby-status').textContent = '🚀 Все готовы! Начинаем игру...';
+        if (allReady) {
+            const statusEl = document.getElementById('lobby-status');
+            if (statusEl) statusEl.textContent = '🚀 Все готовы! Начинаем игру...';
             setTimeout(() => {
                 initializeGame(currentGameId);
             }, 500);
         } else {
-            document.getElementById('lobby-status').textContent = '⏳ Ожидание готовности...';
+            const statusEl = document.getElementById('lobby-status');
+            if (statusEl) {
+                const readyCount = (p1Ready ? 1 : 0) + (p2Ready ? 1 : 0);
+                const totalPlayers = hasPlayer2 ? 2 : 1;
+                statusEl.textContent = `⏳ Готово: ${readyCount}/${totalPlayers} игроков`;
+            }
+        }
+        
+        const readyBtn = document.getElementById('btn-ready');
+        if (readyBtn) {
+            const myReady = data.players[myPlayerId]?.isReady || false;
+            if (myReady) {
+                readyBtn.disabled = true;
+                readyBtn.textContent = '✅ Вы готовы!';
+            } else {
+                readyBtn.disabled = false;
+                readyBtn.textContent = '✅ Я готов';
+            }
         }
         return;
     }
     
-    // Если игра уже началась
+    // ==========================================================
+    // РЕЖИМ ИГРЫ (ПОДЗЕМЕЛЬЕ)
+    // ==========================================================
     if (data.dungeon) {
-        // Обновляем UI
         updateUI(data, myPlayerId, isMyTurn);
         checkAndStartCombat(data, myPlayerId);
-        
-        // Проверяем, нужно ли перейти на следующий этаж
-        const dungeon = data.dungeon;
-        const currentFloor = dungeon.currentFloor || 1;
-        const floorRooms = getCurrentFloorRooms(dungeon);
-        const allCleared = floorRooms.every(id => {
-            const room = dungeon.rooms[id];
-            return room.isCleared || room.type === 'exit';
-        });
-        const exitRoom = floorRooms.find(id => dungeon.rooms[id].type === 'exit');
-        if (allCleared && exitRoom && dungeon.rooms[exitRoom].isCleared) {
-            // Всё готово для перехода
-        }
     }
 }
+
 // ============================================================
-// 3. ИНИЦИАЛИЗАЦИЯ ИГРЫ (С БРОСКОМ КУБИКОВ)
+// 4. ИНФОРМАЦИЯ О ИГРОКАХ В ЛОББИ
+// ============================================================
+
+function updateLobbyPlayersInfo(data) {
+    const container = document.getElementById('lobby-players-list');
+    if (!container) return;
+    
+    const players = data?.players || {};
+    const player1 = players.player1;
+    const player2 = players.player2;
+    const user = getCurrentUser();
+    
+    let html = '';
+    
+    // Игрок 1
+    if (player1) {
+        const classEmoji = CLASSES[player1.class]?.emoji || '👤';
+        const className = CLASSES[player1.class]?.name || 'Не выбран';
+        const readyStatus = player1.isReady ? '✅ Готов' : '⏳ Не готов';
+        const isMe = player1.uid === user?.uid;
+        html += `
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; background:${isMe ? '#2a2f45' : '#1a1f30'}; border-radius:8px; border:${isMe ? '1px solid #f0c040' : '1px solid transparent'};">
+                <div>
+                    <span style="font-size:20px;">${classEmoji}</span>
+                    <span style="font-weight:bold; margin-left:6px;">${player1.name || 'Игрок 1'}</span>
+                    <span style="color:#888; font-size:12px; margin-left:6px;">(${className})</span>
+                    ${isMe ? ' <span style="color:#f0c040; font-size:11px;">(Вы)</span>' : ''}
+                </div>
+                <div style="font-size:13px; color:${player1.isReady ? '#4caf50' : '#888'};">${readyStatus}</div>
+            </div>
+        `;
+    } else {
+        html += `
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; background:#1a1f30; border-radius:8px; opacity:0.4;">
+                <div><span style="font-size:20px;">👤</span><span style="margin-left:6px;">Ожидание игрока...</span></div>
+                <div style="font-size:13px; color:#888;">⏳ Не подключен</div>
+            </div>
+        `;
+    }
+    
+    // Игрок 2
+    if (player2) {
+        const classEmoji = CLASSES[player2.class]?.emoji || '👤';
+        const className = CLASSES[player2.class]?.name || 'Не выбран';
+        const readyStatus = player2.isReady ? '✅ Готов' : '⏳ Не готов';
+        const isMe = player2.uid === user?.uid;
+        html += `
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; background:${isMe ? '#2a2f45' : '#1a1f30'}; border-radius:8px; border:${isMe ? '1px solid #f0c040' : '1px solid transparent'};">
+                <div>
+                    <span style="font-size:20px;">${classEmoji}</span>
+                    <span style="font-weight:bold; margin-left:6px;">${player2.name || 'Игрок 2'}</span>
+                    <span style="color:#888; font-size:12px; margin-left:6px;">(${className})</span>
+                    ${isMe ? ' <span style="color:#f0c040; font-size:11px;">(Вы)</span>' : ''}
+                </div>
+                <div style="font-size:13px; color:${player2.isReady ? '#4caf50' : '#888'};">${readyStatus}</div>
+            </div>
+        `;
+    } else {
+        html += `
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; background:#1a1f30; border-radius:8px; opacity:0.4;">
+                <div><span style="font-size:20px;">👤</span><span style="margin-left:6px;">Свободный слот</span></div>
+                <div style="font-size:13px; color:#888;">⏳ Ожидание</div>
+            </div>
+        `;
+    }
+    
+    container.innerHTML = html;
+}
+
+// ============================================================
+// 5. ИНИЦИАЛИЗАЦИЯ ИГРЫ (С БРОСКОМ КУБИКОВ)
 // ============================================================
 
 async function initializeGame(gameId) {
     const data = await getGameData(gameId);
     
     if (!data.dungeon) {
-        // Определяем количество игроков
         const hasPlayer2 = data.players?.player2 !== null && data.players?.player2 !== undefined;
         const playerCount = hasPlayer2 ? 2 : 1;
         
-        // БРОСОК КУБИКОВ ДЛЯ ОПРЕДЕЛЕНИЯ ЭТАЖЕЙ
+        // Бросок кубиков для определения этажей
         const player1Roll = Math.floor(Math.random() * 6) + 1;
         const player2Roll = hasPlayer2 ? (Math.floor(Math.random() * 6) + 1) : 0;
         const totalFloors = player1Roll + (hasPlayer2 ? player2Roll : 0);
         
-        // Показываем результат в логе
-        const logMessage = hasPlayer2 
-            ? `🎲 Игрок 1 выбросил: ${player1Roll}, Игрок 2: ${player2Roll} → Всего этажей: ${totalFloors}`
-            : `🎲 Игрок 1 выбросил: ${player1Roll} → Всего этажей: ${Math.min(totalFloors, 12)}`;
-        addLog(logMessage);
+        addLog(`🎲 Бросок этажей: Игрок 1: ${player1Roll}${hasPlayer2 ? `, Игрок 2: ${player2Roll}` : ''} → Всего: ${Math.min(totalFloors, 12)} этажей`);
         
         const dungeon = generateDungeon(Math.min(totalFloors, 12));
         delete dungeon.map;
@@ -519,8 +460,6 @@ async function initializeGame(gameId) {
         if (data.players.player2) {
             updates['players.player2.position'] = firstRoom;
         }
-        
-        // Сбрасываем готовность игроков (чтобы можно было начать заново)
         if (data.players.player1) {
             updates['players.player1.isReady'] = false;
         }
@@ -537,11 +476,10 @@ async function initializeGame(gameId) {
 }
 
 // ============================================================
-// 5. НАСТРОЙКА UI
+// 6. НАСТРОЙКА UI
 // ============================================================
 
 function setupGameUI() {
-    // Кнопка броска
     document.getElementById('btn-roll').addEventListener('click', function() {
         if (!isMyTurn) { alert('⏳ Сейчас не ваш ход!'); return; }
         const room = getRoom(gameState.dungeon, gameState.players[currentPlayerId]?.position);
@@ -576,7 +514,7 @@ function setupGameUI() {
 }
 
 // ============================================================
-// 6. БРОСОК КУБИКОВ (С ИСПОЛЬЗОВАНИЕМ 3D)
+// 7. БРОСОК КУБИКОВ (С 3D)
 // ============================================================
 
 function handleRollDice() {
@@ -595,13 +533,10 @@ function handleRollDice() {
     
     console.log('🎲 Выпало:', values);
     
-    // Сохраняем значения для последующего распределения
     window.currentDiceValues = values;
     window.diceSelections = {};
     
-    // Запускаем 3D анимацию
     rollDiceWithValues(values, (rolledValues) => {
-        // После завершения анимации показываем результат и распределение
         const combo = checkCombo(player.class, rolledValues);
         if (combo) {
             showDiceModal(rolledValues, combo.name, combo.description);
@@ -622,7 +557,6 @@ function handleRollDice() {
     });
 }
 
-// ----- ПРОВЕРКА КОМБИНАЦИЙ (без изменений) -----
 function checkCombo(className, diceValues) {
     const combos = COMBOS[className];
     if (!combos) return null;
@@ -638,7 +572,6 @@ function checkCombo(className, diceValues) {
     return null;
 }
 
-// ----- ПРИМЕНЕНИЕ КОМБИНАЦИИ (без изменений) -----
 function applyCombo(playerId, combo) {
     const player = gameState.players[playerId];
     if (!player) return;
@@ -746,7 +679,6 @@ function applyCombo(playerId, combo) {
     });
 }
 
-// ----- ПОДТВЕРЖДЕНИЕ РАСПРЕДЕЛЕНИЯ (без изменений) -----
 window.confirmDiceDistribution = function(attackSum, defenseSum, selections) {
     const player = gameState.players[currentPlayerId];
     if (!player) return;
@@ -791,7 +723,7 @@ window.confirmDiceDistribution = function(attackSum, defenseSum, selections) {
 };
 
 // ============================================================
-// 7. ХОДЫ (С ПРОВЕРКОЙ ЗАВЕРШЕНИЯ ЭТАЖА)
+// 8. ХОДЫ
 // ============================================================
 
 function nextTurn() {
@@ -800,7 +732,6 @@ function nextTurn() {
     const player = gameState.players[currentPlayerId];
     const room = getRoom(gameState.dungeon, player?.position);
     
-    // Если комната зачищена и это выход, или комната отдыха/магазин – переключаем ход
     if (!room || room.isCleared || room.type === 'rest' || room.type === 'shop' || room.type === 'exit') {
         const order = ['player1', 'player2'];
         const currentIdx = gameState.turn.index || 0;
@@ -819,7 +750,6 @@ function nextTurn() {
         return;
     }
     
-    // Проверяем, все ли враги мертвы
     const hasAlive = room.enemies?.some(e => e.isAlive);
     if (!hasAlive) {
         room.isCleared = true;
@@ -827,25 +757,6 @@ function nextTurn() {
         addLog(`✅ Комната зачищена!`);
         updateGameState(currentGameId, { dungeon: gameState.dungeon });
         
-        // Проверяем, зачищен ли весь этаж
-        const dungeon = gameState.dungeon;
-        const currentFloor = dungeon.currentFloor || 1;
-        const floorRooms = getCurrentFloorRooms(dungeon);
-        const allCleared = floorRooms.every(id => {
-            const r = dungeon.rooms[id];
-            return r.isCleared || r.type === 'exit';
-        });
-        if (allCleared) {
-            // Находим выход
-            const exitRoom = floorRooms.find(id => dungeon.rooms[id].type === 'exit');
-            if (exitRoom) {
-                dungeon.rooms[exitRoom].isCleared = true;
-                dungeon.rooms[exitRoom].isRevealed = true;
-                addLog(`🚪 Выход на следующий этаж открыт!`);
-            }
-        }
-        
-        // Переключение хода
         const order = ['player1', 'player2'];
         const currentIdx = gameState.turn.index || 0;
         const nextIdx = (currentIdx + 1) % order.length;
@@ -854,11 +765,10 @@ function nextTurn() {
         gameState.turn.currentPlayer = nextPlayer;
         gameState.turn.index = nextIdx;
         gameState.turn.phase = 'idle';
-        updateGameState(currentGameId, { dungeon: gameState.dungeon, turn: gameState.turn });
+        updateGameState(currentGameId, { turn: gameState.turn });
         return;
     }
     
-    // Обычное переключение хода
     const order = ['player1', 'player2'];
     const currentIdx = gameState.turn.index || 0;
     const nextIdx = (currentIdx + 1) % order.length;
@@ -885,7 +795,7 @@ function nextTurn() {
 }
 
 // ============================================================
-// 8. НАЧАЛО БОЯ (без изменений)
+// 9. НАЧАЛО БОЯ
 // ============================================================
 
 function checkAndStartCombat(data, myPlayerId) {
@@ -913,7 +823,7 @@ function checkAndStartCombat(data, myPlayerId) {
 }
 
 // ============================================================
-// 9. ПЕРЕХОД НА СЛЕДУЮЩИЙ ЭТАЖ
+// 10. ПЕРЕХОД НА СЛЕДУЮЩИЙ ЭТАЖ
 // ============================================================
 
 window.goToNextFloorAction = function() {
@@ -921,7 +831,6 @@ window.goToNextFloorAction = function() {
     const dungeon = gameState.dungeon;
     const currentFloor = dungeon.currentFloor || 1;
     
-    // Проверяем, все ли комнаты этажа зачищены
     const floorRooms = getCurrentFloorRooms(dungeon);
     const allCleared = floorRooms.every(id => {
         const r = dungeon.rooms[id];
@@ -933,21 +842,17 @@ window.goToNextFloorAction = function() {
         return;
     }
     
-    // Проверяем, есть ли выход
     const exitRoom = floorRooms.find(id => dungeon.rooms[id].type === 'exit');
     if (!exitRoom || !dungeon.rooms[exitRoom].isCleared) {
         alert('❌ Выход ещё не открыт!');
         return;
     }
     
-    // Переходим на следующий этаж
     if (dungeon.currentFloor < dungeon.totalFloors) {
         dungeon.currentFloor++;
-        // Перемещаем игроков в первую комнату нового этажа
         const newFloorRooms = Object.keys(dungeon.rooms).filter(id => dungeon.rooms[id].floor === dungeon.currentFloor);
         if (newFloorRooms.length > 0) {
             const firstRoom = newFloorRooms[0];
-            // Обновляем позиции всех живых игроков
             Object.keys(gameState.players).forEach(id => {
                 const p = gameState.players[id];
                 if (p && p.isAlive) {
@@ -959,7 +864,6 @@ window.goToNextFloorAction = function() {
                 dungeon: gameState.dungeon,
                 players: gameState.players
             });
-            // Обновляем UI
             updateUI(gameState, currentPlayerId, isMyTurn);
         }
     } else {
@@ -970,7 +874,7 @@ window.goToNextFloorAction = function() {
 };
 
 // ============================================================
-// 10. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (без изменений)
+// 11. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
 // ============================================================
 
 function addLog(text) {
@@ -988,7 +892,10 @@ function sendChat() {
     }
 }
 
-// ----- ВЫБОР КОМНАТЫ -----
+// ============================================================
+// 12. ВЫБОР КОМНАТЫ
+// ============================================================
+
 window.selectRoom = function(roomId) {
     if (!gameState || !currentPlayerId) return;
     const player = gameState.players[currentPlayerId];
@@ -1002,63 +909,46 @@ window.selectRoom = function(roomId) {
         return;
     }
     
-    // Проверяем, что комната на текущем этаже
     const dungeon = gameState.dungeon;
     if (targetRoom.floor !== (dungeon.currentFloor || 1)) {
         alert('🔒 Эта комната на другом этаже!');
         return;
     }
     
-    // Если комната ещё не открыта (скрыта) — нельзя войти
     if (!targetRoom.isRevealed && roomId !== player.position) {
         alert('🔒 Комната ещё не открыта!');
         return;
     }
     
-    // Проверяем, можно ли покинуть текущую комнату
     if (currentRoom) {
-        // Если в текущей комнате есть живые враги — нельзя выйти
         if (currentRoom.enemies && currentRoom.enemies.some(e => e.isAlive)) {
             alert('⚔️ Сначала победите всех врагов в этой комнате!');
             return;
         }
-        // Если комната — выход, и она не пройдена, но мы не на боссе
         if (currentRoom.type === 'exit' && !currentRoom.isCleared && roomId !== player.position) {
             alert('🚪 Сначала откройте выход!');
             return;
         }
     }
     
-    // Если это комната с боссом, проверяем, жив ли босс
-    if (targetRoom.type === 'boss' && targetRoom.enemies && targetRoom.enemies.some(e => e.isAlive)) {
-        // Можно войти в комнату с боссом, но сразу начинается бой
-        // Разрешаем вход
-    }
-    
-    // Перемещаем игрока в новую комнату
     const oldPos = player.position;
     player.position = roomId;
     
-    // Добавляем игрока в список игроков в новой комнате
     if (!targetRoom.players) targetRoom.players = [];
     if (!targetRoom.players.includes(currentPlayerId)) {
         targetRoom.players.push(currentPlayerId);
     }
     
-    // Удаляем игрока из старой комнаты
     if (currentRoom && currentRoom.players) {
         currentRoom.players = currentRoom.players.filter(id => id !== currentPlayerId);
     }
     
-    // Если комната была скрыта — открываем её
     if (!targetRoom.isRevealed) {
         targetRoom.isRevealed = true;
     }
     
-    // Если комната с боссом и есть живые враги — начинаем бой
     if (targetRoom.type === 'boss' && targetRoom.enemies && targetRoom.enemies.some(e => e.isAlive)) {
         addLog(`👑 Босс в комнате ${targetRoom.id}!`);
-        // Переводим игру в режим боя
         gameState.turn.phase = 'roll';
         gameState.turn.currentPlayer = currentPlayerId;
         updateGameState(currentGameId, {
@@ -1070,14 +960,11 @@ window.selectRoom = function(roomId) {
         return;
     }
     
-    // Если комната с боем и есть живые враги
     if ((targetRoom.type === 'combat' || targetRoom.type === 'boss') && targetRoom.enemies && targetRoom.enemies.some(e => e.isAlive)) {
-        // Начинаем бой
         gameState.turn.phase = 'roll';
         gameState.turn.currentPlayer = currentPlayerId;
         addLog(`⚔️ Бой в комнате ${targetRoom.id}!`);
     } else {
-        // Иначе просто обновляем состояние
         gameState.turn.phase = 'idle';
     }
     
@@ -1090,7 +977,10 @@ window.selectRoom = function(roomId) {
     updateUI(gameState, currentPlayerId, isMyTurn);
 };
 
-// ----- ВЫБОР ЦЕЛИ ДЛЯ АТАКИ -----
+// ============================================================
+// 13. ВЫБОР ЦЕЛИ
+// ============================================================
+
 window.selectEnemyTarget = function(index) {
     if (!gameState || !isMyTurn) return;
     const room = getRoom(gameState.dungeon, gameState.players[currentPlayerId]?.position);
@@ -1148,7 +1038,10 @@ function applyComboToTarget(playerId, combo, enemy) {
     updateRoomAfterCombat(getRoom(gameState.dungeon, player.position));
 }
 
-// ----- ОТКРЫТЬ СУНДУК -----
+// ============================================================
+// 14. СУНДУКИ, МАГАЗИН, ОТДЫХ
+// ============================================================
+
 window.openChestAction = function(index) {
     if (!gameState || !currentPlayerId) return;
     const room = getRoom(gameState.dungeon, gameState.players[currentPlayerId]?.position);
@@ -1169,7 +1062,6 @@ window.openChestAction = function(index) {
     }
 };
 
-// ----- КУПИТЬ В МАГАЗИНЕ -----
 window.buyShopAction = function(index) {
     if (!gameState || !currentPlayerId) return;
     const room = getRoom(gameState.dungeon, gameState.players[currentPlayerId]?.position);
@@ -1190,7 +1082,6 @@ window.buyShopAction = function(index) {
     }
 };
 
-// ----- ОТДОХНУТЬ -----
 window.restHealAction = function() {
     if (!gameState || !currentPlayerId) return;
     const player = gameState.players[currentPlayerId];
@@ -1214,7 +1105,7 @@ window.restHealAction = function() {
 };
 
 // ============================================================
-// 11. ИНВЕНТАРЬ И КАРТА (без изменений)
+// 15. ИНВЕНТАРЬ И КАРТА
 // ============================================================
 
 function showInventoryModal() {
@@ -1349,7 +1240,7 @@ function showMapModal() {
 }
 
 // ============================================================
-// 12. ГЛОБАЛЬНЫЕ ФУНКЦИИ
+// 16. ГЛОБАЛЬНЫЕ ФУНКЦИИ
 // ============================================================
 
 window.closeModal = closeModal;
