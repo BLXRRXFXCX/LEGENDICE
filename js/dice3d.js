@@ -1,5 +1,5 @@
 // ============================================================
-// LEGENDICE - dice3d.js (ФИНАЛЬНАЯ ВЕРСИЯ)
+// LEGENDICE - dice3d.js (ФИНАЛЬНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ)
 // ============================================================
 
 let scene, camera, renderer;
@@ -142,7 +142,7 @@ function animateCameraToTop() {
 }
 
 // ============================================================
-// ТЕКСТУРА С ЭМОДЗИ (УВЕЛИЧЕННЫЙ ШРИФТ 210px, ЦЕНТРИРОВАН)
+// ТЕКСТУРА С ЭМОДЗИ (УМЕНЬШЕННЫЙ ШРИФТ 180px, УВЕЛИЧЕННАЯ РАМКА)
 // ============================================================
 function createFaceTexture(emoji, bgColor = '#ffffff') {
     const canvas = document.createElement('canvas');
@@ -154,10 +154,10 @@ function createFaceTexture(emoji, bgColor = '#ffffff') {
     ctx.fillRect(0, 0, 128, 128);
     
     ctx.strokeStyle = '#333';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(1, 1, 126, 126);
+    ctx.lineWidth = 2;
+    ctx.strokeRect(2, 2, 124, 124);
     
-    ctx.font = '210px Arial';
+    ctx.font = '180px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#000';
@@ -167,14 +167,12 @@ function createFaceTexture(emoji, bgColor = '#ffffff') {
 }
 
 // ============================================================
-// ПРАВИЛЬНЫЕ ВРАЩЕНИЯ ДЛЯ КАЖДОЙ ГРАНИ
+// ПРАВИЛЬНЫЕ ВРАЩЕНИЯ (ИСПРАВЛЕНЫ ДЛЯ 1 И 2)
 // ============================================================
 function getRotationForValue(value) {
-    // Индексы граней: 0:+x, 1:-x, 2:+y, 3:-y, 4:+z, 5:-z
-    // Эмодзи: 0:⚀, 1:⚁, 2:⚂, 3:⚃, 4:⚄, 5:⚅
     switch(value) {
-        case 1: return { x: 0, y: 0, z: -Math.PI / 2 };
-        case 2: return { x: 0, y: 0, z: Math.PI / 2 };
+        case 1: return { x: 0, y: 0, z: Math.PI / 2 };   // грань 0 (+x)
+        case 2: return { x: 0, y: 0, z: -Math.PI / 2 };  // грань 1 (-x)
         case 3: return { x: 0, y: 0, z: 0 };
         case 4: return { x: Math.PI, y: 0, z: 0 };
         case 5: return { x: -Math.PI / 2, y: 0, z: 0 };
