@@ -899,20 +899,31 @@ window.goToNextFloorAction = function() {
     const dungeon = gameState.dungeon;
     const currentFloor = dungeon.currentFloor || 1;
     
+    // Проверяем, зачищены ли ВСЕ боевые комнаты
     const floorRooms = getCurrentFloorRooms(dungeon);
-    const allCleared = floorRooms.every(id => {
-        const r = dungeon.rooms[id];
-        return r.isCleared || r.type === 'exit';
+    const combatRooms = floorRooms.filter(id => {
+        const room = dungeon.rooms[id];
+        return room.type === 'combat' || room.type === 'boss';
     });
     
-    if (!allCleared) {
-        alert('❌ Сначала зачистите все комнаты этажа!');
+    // Проверяем, что все боевые комнаты зачищены
+    const allCombatCleared = combatRooms.every(id => {
+        const room = dungeon.rooms[id];
+        if (room.enemies) {
+            return room.enemies.every(enemy => !enemy.isAlive);
+        }
+        return room.isCleared;
+    });
+    
+    if (!allCombatCleared) {
+        alert('⚔️ Сначала зачистите все комнаты с врагами!');
         return;
     }
     
+    // Проверяем, есть ли выход на этаже
     const exitRoom = floorRooms.find(id => dungeon.rooms[id].type === 'exit');
     if (!exitRoom || !dungeon.rooms[exitRoom].isCleared) {
-        alert('❌ Выход ещё не открыт!');
+        alert('🚪 Выход ещё не открыт!');
         return;
     }
     
@@ -940,7 +951,6 @@ window.goToNextFloorAction = function() {
         updateGameState(currentGameId, { status: 'finished' });
     }
 };
-
 // ============================================================
 // 11. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
 // ============================================================
