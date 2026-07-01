@@ -163,19 +163,20 @@ function updateMinimap(gameData, myPlayerId) {
     
     container.innerHTML = html;
     
-    container.querySelectorAll('.minimap-room').forEach(el => {
-        el.addEventListener('click', () => {
-            const roomId = el.dataset.room;
-            if (!roomId) return;
-            const room = getRoom(dungeon, roomId);
-            if (!room) return;
-            if (room.isRevealed || roomId === myPos) {
-                window.selectRoom?.(roomId);
-            } else {
-                alert('🔒 Комната ещё не открыта!');
-            }
-        });
+   container.querySelectorAll('.minimap-room').forEach(el => {
+    el.addEventListener('click', () => {
+        const roomId = el.dataset.room;
+        if (!roomId) return;
+        const room = getRoom(dungeon, roomId);
+        if (!room) return;
+        // Разрешаем переход в любую комнату на текущем этаже
+        if (room.floor === (dungeon.currentFloor || 1)) {
+            window.selectRoom?.(roomId);
+        } else {
+            alert('🔒 Эта комната на другом этаже!');
+        }
     });
+});
 }
 
 // ----- ОТОБРАЖЕНИЕ ТЕКУЩЕЙ КОМНАТЫ (ВОССТАНОВЛЕНА) -----
