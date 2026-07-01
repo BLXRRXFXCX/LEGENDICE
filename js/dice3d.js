@@ -144,7 +144,7 @@ function animateCameraToTop() {
 function drawDiceDots(ctx, value) {
     const cx = 64, cy = 64;
     const radius = 11;
-    const spacing = 36; // Увеличено с 28 до 36
+    const spacing = 40; // Увеличено с 28 до 36
     const offset = spacing / 2;
     
     ctx.fillStyle = '#000';
