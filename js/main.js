@@ -456,22 +456,29 @@ function handleGameUpdate(data) {
 }
 
 // ============================================================
-// 4. ИНИЦИАЛИЗАЦИЯ ИГРЫ (запуск подземелья)
+// 3. ИНИЦИАЛИЗАЦИЯ ИГРЫ (С БРОСКОМ КУБИКОВ)
 // ============================================================
 
 async function initializeGame(gameId) {
     const data = await getGameData(gameId);
     
     if (!data.dungeon) {
-        // Бросок кубиков для определения количества этажей
-        const floorResult = generateFloorsFromDice();
-        const totalFloors = floorResult.totalFloors;
+        // Определяем количество игроков
+        const hasPlayer2 = data.players?.player2 !== null && data.players?.player2 !== undefined;
+        const playerCount = hasPlayer2 ? 2 : 1;
         
-        // Показываем результат броска в лобби (или в чате)
-        addLog(`🎲 Игрок 1 выбросил: ${floorResult.player1Roll}, Игрок 2: ${floorResult.player2Roll}`);
-        addLog(`🏰 Всего этажей: ${totalFloors}`);
+        // БРОСОК КУБИКОВ ДЛЯ ОПРЕДЕЛЕНИЯ ЭТАЖЕЙ
+        const player1Roll = Math.floor(Math.random() * 6) + 1;
+        const player2Roll = hasPlayer2 ? (Math.floor(Math.random() * 6) + 1) : 0;
+        const totalFloors = player1Roll + (hasPlayer2 ? player2Roll : 0);
         
-        const dungeon = generateDungeon(totalFloors);
+        // Показываем результат в логе
+        const logMessage = hasPlayer2 
+            ? `🎲 Игрок 1 выбросил: ${player1Roll}, Игрок 2: ${player2Roll} → Всего этажей: ${totalFloors}`
+            : `🎲 Игрок 1 выбросил: ${player1Roll} → Всего этажей: ${Math.min(totalFloors, 12)}`;
+        addLog(logMessage);
+        
+        const dungeon = generateDungeon(Math.min(totalFloors, 12));
         delete dungeon.map;
         
         const firstRoom = Object.keys(dungeon.rooms).find(id => dungeon.rooms[id].floor === 1) || Object.keys(dungeon.rooms)[0];
@@ -482,7 +489,7 @@ async function initializeGame(gameId) {
             turn: {
                 currentPlayer: 'player1',
                 phase: 'idle',
-                order: ['player1', 'player2'],
+                order: hasPlayer2 ? ['player1', 'player2'] : ['player1'],
                 index: 0,
                 diceValues: [],
                 selectedAttack: [],
@@ -498,6 +505,14 @@ async function initializeGame(gameId) {
         }
         if (data.players.player2) {
             updates['players.player2.position'] = firstRoom;
+        }
+        
+        // Сбрасываем готовность игроков (чтобы можно было начать заново)
+        if (data.players.player1) {
+            updates['players.player1.isReady'] = false;
+        }
+        if (data.players.player2) {
+            updates['players.player2.isReady'] = false;
         }
         
         await updateGameState(gameId, updates);
