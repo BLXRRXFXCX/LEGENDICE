@@ -490,12 +490,21 @@ async function initializeGame(gameId) {
 }
 
 // ============================================================
-// 6. НАСТРОЙКА UI
+// 6. НАСТРОЙКА UI (С ЗАЩИТОЙ ОТ ДУБЛИРОВАНИЯ)
 // ============================================================
 
 function setupGameUI() {
-    document.getElementById('btn-roll').addEventListener('click', function() {
-        if (!isMyTurn) { alert('⏳ Сейчас не ваш ход!'); return; }
+    // ----- КНОПКА БРОСКА (С ЗАЩИТОЙ ОТ ДУБЛЕЙ) -----
+    const rollBtn = document.getElementById('btn-roll');
+    // Удаляем все старые обработчики через замену элемента
+    const newRollBtn = rollBtn.cloneNode(true);
+    rollBtn.parentNode.replaceChild(newRollBtn, rollBtn);
+    
+    newRollBtn.addEventListener('click', function() {
+        if (!isMyTurn) { 
+            alert('⏳ Сейчас не ваш ход!'); 
+            return; 
+        }
         const room = getRoom(gameState.dungeon, gameState.players[currentPlayerId]?.position);
         if (!room) {
             alert('❌ Комната не найдена');
@@ -518,20 +527,51 @@ function setupGameUI() {
         handleRollDice();
     });
     
-    document.getElementById('btn-inventory').addEventListener('click', showInventoryModal);
-    document.getElementById('btn-map').addEventListener('click', showMapModal);
+    // ----- ИНВЕНТАРЬ -----
+    const invBtn = document.getElementById('btn-inventory');
+    const newInvBtn = invBtn.cloneNode(true);
+    invBtn.parentNode.replaceChild(newInvBtn, invBtn);
+    newInvBtn.addEventListener('click', showInventoryModal);
     
-    document.getElementById('dice-close-btn')?.addEventListener('click', () => {
-        closeDiceModal();
-    });
+    // ----- КАРТА -----
+    const mapBtn = document.getElementById('btn-map');
+    const newMapBtn = mapBtn.cloneNode(true);
+    mapBtn.parentNode.replaceChild(newMapBtn, mapBtn);
+    newMapBtn.addEventListener('click', showMapModal);
     
-    document.getElementById('chat-send')?.addEventListener('click', sendChat);
-    document.getElementById('chat-input')?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') sendChat();
-    });
+    // ----- ЗАКРЫТИЕ 3D КУБИКОВ -----
+    const closeBtn = document.getElementById('dice-close-btn');
+    if (closeBtn) {
+        const newCloseBtn = closeBtn.cloneNode(true);
+        closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+        newCloseBtn.addEventListener('click', () => {
+            closeDiceModal();
+        });
+    }
     
+    // ----- ЧАТ -----
+    const chatSend = document.getElementById('chat-send');
+    if (chatSend) {
+        const newChatSend = chatSend.cloneNode(true);
+        chatSend.parentNode.replaceChild(newChatSend, chatSend);
+        newChatSend.addEventListener('click', sendChat);
+    }
+    
+    const chatInput = document.getElementById('chat-input');
+    if (chatInput) {
+        const newChatInput = chatInput.cloneNode(true);
+        chatInput.parentNode.replaceChild(newChatInput, chatInput);
+        newChatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') sendChat();
+        });
+    }
+    
+    // ----- ПИНГИ -----
     document.querySelectorAll('.ping-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
+        // Удаляем старые обработчики через замену
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        newBtn.addEventListener('click', function() {
             const emoji = this.dataset.emoji;
             if (gameState && currentPlayerId) {
                 const roomId = gameState.players[currentPlayerId]?.position || 'room_1';
