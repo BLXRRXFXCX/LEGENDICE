@@ -31,11 +31,7 @@ import {
 
 import { initDice3D, rollDiceWithValues, closeDiceModal } from './dice3d.js';
 
-import {
-    generateDungeon, getRoom, getCurrentFloorRooms,
-    isFloorCleared, goToNextFloor, updateRoomAfterCombat,
-    openChest, buyShopItem
-} from './game.js';
+import { generateDungeon, generateFloorsFromDice, getRoom, getCurrentFloorRooms, isFloorCleared, goToNextFloor, updateRoomAfterCombat, openChest, buyShopItem } from './game.js';
 
 // ----- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ -----
 let gameState = null;
@@ -303,9 +299,15 @@ async function initializeGame(gameId) {
     const data = await getGameData(gameId);
     
     if (!data.dungeon) {
-        const totalFloors = 5;
+        // Бросок кубиков для определения количества этажей
+        const floorResult = generateFloorsFromDice();
+        const totalFloors = floorResult.totalFloors;
+        
+        // Показываем результат броска в лобби (или в чате)
+        addLog(`🎲 Игрок 1 выбросил: ${floorResult.player1Roll}, Игрок 2: ${floorResult.player2Roll}`);
+        addLog(`🏰 Всего этажей: ${totalFloors}`);
+        
         const dungeon = generateDungeon(totalFloors);
-        // Удаляем map, если он есть
         delete dungeon.map;
         
         const firstRoom = Object.keys(dungeon.rooms).find(id => dungeon.rooms[id].floor === 1) || Object.keys(dungeon.rooms)[0];
@@ -337,10 +339,8 @@ async function initializeGame(gameId) {
         await updateGameState(gameId, updates);
     }
     
-    // Переключаем экраны
     document.getElementById('lobby-screen').style.display = 'none';
     document.getElementById('game-screen').style.display = 'flex';
-    
     setupGameUI();
 }
 
