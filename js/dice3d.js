@@ -66,7 +66,7 @@ export function initDice3D() {
     // ----- СТОЛ (ОДНА ПЛОСКОСТЬ) -----
     const tableGeo = new THREE.PlaneGeometry(6, 6);
     const tableMat = new THREE.MeshStandardMaterial({
-        color: 0x2a2a4a,
+        color: 0x3a2a1a,
         transparent: true,
         opacity: 0.3,
         side: THREE.DoubleSide
