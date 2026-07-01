@@ -1,5 +1,5 @@
 // ============================================================
-// LEGENDICE - dice3d.js (С РИСОВАНИЕМ ТОЧЕК)
+// LEGENDICE - dice3d.js (С УВЕЛИЧЕННЫМИ ТОЧКАМИ)
 // ============================================================
 
 let scene, camera, renderer;
@@ -63,6 +63,7 @@ export function initDice3D() {
     backLight.position.set(-3, 5, -5);
     scene.add(backLight);
     
+    // ----- СТОЛ (ОДНА ПЛОСКОСТЬ) -----
     const tableGeo = new THREE.PlaneGeometry(6, 6);
     const tableMat = new THREE.MeshStandardMaterial({
         color: 0x2a2a4a,
@@ -75,10 +76,6 @@ export function initDice3D() {
     table.position.y = -0.5;
     table.receiveShadow = true;
     scene.add(table);
-    
-    const gridHelper = new THREE.GridHelper(6, 6, 0x444466, 0x333355);
-    gridHelper.position.y = -0.4;
-    scene.add(gridHelper);
     
     let resizeTimeout;
     window.addEventListener('resize', () => {
@@ -142,12 +139,12 @@ function animateCameraToTop() {
 }
 
 // ============================================================
-// РИСОВАНИЕ ТОЧЕК НА ГРАНЯХ КУБИКА
+// РИСОВАНИЕ ТОЧЕК НА ГРАНЯХ КУБИКА (УВЕЛИЧЕННОЕ РАССТОЯНИЕ)
 // ============================================================
 function drawDiceDots(ctx, value) {
     const cx = 64, cy = 64;
-    const radius = 12;
-    const spacing = 28;
+    const radius = 11;
+    const spacing = 36; // Увеличено с 28 до 36
     const offset = spacing / 2;
     
     ctx.fillStyle = '#000';
@@ -279,7 +276,8 @@ export function rollDiceWithValues(values, callback = null) {
         scene.add(dice);
         diceMeshes.push(dice);
         
-        const targetY = -0.3 + Math.random() * 0.1;
+        // Целевая позиция: чуть выше стола, чтобы не тонуть
+        const targetY = -0.35;
         const duration = 600 + Math.random() * 400;
         const startTime = Date.now();
         const startY = dice.position.y;
