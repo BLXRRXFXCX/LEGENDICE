@@ -98,7 +98,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ============================================================
-// 2. ЛОББИ
+// 2. ЛОББИ (НОВАЯ ВЕРСИЯ)
 // ============================================================
 
 function showLobbyScreen() {
@@ -113,6 +113,8 @@ function showLobbyScreen() {
             <div style="margin-bottom:6px; color:#888; font-size:13px;">
                 🆔 ID: <span id="lobby-player-id">${getCurrentUser()?.uid?.slice(0,8) || '...'}</span>
             </div>
+            
+            <!-- БЛОК ВЫБОРА КЛАССА -->
             <div class="class-select" id="class-select">
                 ${Object.entries(CLASSES).map(([key, cls]) => `
                     <button class="class-btn" data-class="${key}">
@@ -122,15 +124,29 @@ function showLobbyScreen() {
                 `).join('')}
             </div>
             <input type="text" id="player-name" placeholder="Ваше имя..." maxlength="20" value="Игрок">
+            
+            <!-- КНОПКИ СОЗДАНИЯ / ПОДКЛЮЧЕНИЯ -->
             <button class="btn-primary" id="btn-create-game">🎲 Создать игру</button>
             <div style="display:flex; gap:8px; margin-top:4px;">
                 <input type="text" id="join-game-id" placeholder="Код игры..." style="flex:1; padding:10px; border-radius:8px; border:none; background:#1e2337; color:#fff; font-size:14px;">
                 <button class="btn-secondary" id="btn-join-game">Подключиться</button>
             </div>
+            
+            <!-- СТАТУС ЛОББИ -->
             <div id="lobby-status" style="color:#888; font-size:14px; margin-top:8px; min-height:20px;">👋 Выберите класс и создайте игру</div>
-            <button id="btn-ready" class="btn-success" style="display:none; padding:12px; border-radius:8px; border:none; font-weight:bold; cursor:pointer; margin-top:10px;">
+            
+            <!-- ИНФОРМАЦИЯ ОБ ИГРОКАХ В ЛОББИ -->
+            <div id="lobby-players-info" style="display:none; margin-top:10px; padding:12px; background:#1e2337; border-radius:10px; border:1px solid #2a2f45;">
+                <div style="font-size:13px; color:#888; margin-bottom:8px;">👥 Игроки в лобби:</div>
+                <div id="lobby-players-list" style="display:flex; flex-direction:column; gap:6px;"></div>
+            </div>
+            
+            <!-- КНОПКА "Я ГОТОВ" -->
+            <button id="btn-ready" class="btn-success" style="display:none; padding:14px; border-radius:10px; border:none; font-weight:bold; cursor:pointer; margin-top:10px; font-size:16px;">
                 ✅ Я готов
             </button>
+            
+            <!-- ССЫЛКА ДЛЯ ПРИГЛАШЕНИЯ -->
             <div id="invite-section" style="display:none; margin-top:8px; padding:10px; background:#1e2337; border-radius:8px;">
                 <div style="color:#888; font-size:11px;">🔗 Ссылка для приглашения:</div>
                 <div style="display:flex; gap:6px; align-items:center; margin-top:4px;">
@@ -141,18 +157,29 @@ function showLobbyScreen() {
         `;
     }
     
-    // Выбор класса
+    // ----- ВЫБОР КЛАССА -----
     document.querySelectorAll('.class-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             document.querySelectorAll('.class-btn').forEach(b => b.classList.remove('selected'));
             this.classList.add('selected');
             myClass = this.dataset.class;
+            // Если уже в игре — обновляем класс в Firebase
+            if (currentGameId && currentPlayerId) {
+                updatePlayerClass(currentGameId, currentPlayerId, myClass);
+            }
         });
     });
     const firstBtn = document.querySelector('.class-btn');
     if (firstBtn) { firstBtn.classList.add('selected'); myClass = firstBtn.dataset.class; }
     
-    // Создать игру
+    // ----- ИМЯ ИГРОКА -----
+    document.getElementById('player-name').addEventListener('change', function() {
+        if (currentGameId && currentPlayerId) {
+            updatePlayerName(currentGameId, currentPlayerId, this.value);
+        }
+    });
+    
+    // ----- СОЗДАТЬ ИГРУ -----
     document.getElementById('btn-create-game').addEventListener('click', async function() {
         const name = document.getElementById('player-name')?.value || 'Игрок';
         const status = document.getElementById('lobby-status');
@@ -183,11 +210,17 @@ function showLobbyScreen() {
                 });
             }
             
-            // Показываем кнопку "Я готов"
+            // Показываем информацию о лобби и кнопку готовности
+            document.getElementById('lobby-players-info').style.display = 'block';
             document.getElementById('btn-ready').style.display = 'block';
+            document.getElementById('btn-ready').textContent = '✅ Я готов';
+            document.getElementById('btn-ready').disabled = false;
             
             if (unsubscribeGame) unsubscribeGame();
-            unsubscribeGame = subscribeToGame(gameId, handleGameUpdate);
+            unsubscribeGame = subscribeToGame(gameId, handleLobbyUpdate);
+            
+            // Обновляем информацию о игроках
+            updateLobbyPlayersInfo(data);
             
         } catch (error) {
             console.error(error);
@@ -195,7 +228,7 @@ function showLobbyScreen() {
         }
     });
     
-    // Подключиться к игре
+    // ----- ПОДКЛЮЧИТЬСЯ К ИГРЕ -----
     document.getElementById('btn-join-game').addEventListener('click', async function() {
         const gameId = document.getElementById('join-game-id')?.value.trim();
         const name = document.getElementById('player-name')?.value || 'Игрок';
@@ -210,11 +243,15 @@ function showLobbyScreen() {
             currentPlayerId = 'player2';
             if (status) status.textContent = `✅ Подключено к игре: ${gameId}`;
             
-            // Показываем кнопку "Я готов"
+            document.getElementById('lobby-players-info').style.display = 'block';
             document.getElementById('btn-ready').style.display = 'block';
+            document.getElementById('btn-ready').textContent = '✅ Я готов';
+            document.getElementById('btn-ready').disabled = false;
             
             if (unsubscribeGame) unsubscribeGame();
-            unsubscribeGame = subscribeToGame(gameId, handleGameUpdate);
+            unsubscribeGame = subscribeToGame(gameId, handleLobbyUpdate);
+            
+            updateLobbyPlayersInfo(data);
             
         } catch (error) {
             console.error(error);
@@ -222,14 +259,141 @@ function showLobbyScreen() {
         }
     });
     
-    // Кнопка "Я готов"
+    // ----- КНОПКА "Я ГОТОВ" -----
     document.getElementById('btn-ready').addEventListener('click', async function() {
         if (!currentGameId || !currentPlayerId) return;
-        isReady = true;
+        
+        // Обновляем ник и класс перед готовностью
+        const name = document.getElementById('player-name')?.value || 'Игрок';
+        await updatePlayerName(currentGameId, currentPlayerId, name);
+        await updatePlayerClass(currentGameId, currentPlayerId, myClass);
+        
+        // Отправляем готовность
         await setPlayerReady(currentGameId, currentPlayerId, true);
-        document.getElementById('btn-ready').disabled = true;
-        document.getElementById('btn-ready').textContent = '⏳ Ожидание второго игрока...';
+        this.disabled = true;
+        this.textContent = '⏳ Ожидание других игроков...';
+        document.getElementById('lobby-status').textContent = '⏳ Ожидание готовности других игроков...';
     });
+}
+
+// ============================================================
+// 2.1. ОБНОВЛЕНИЕ ЛОББИ (ПОКАЗ ИГРОКОВ)
+// ============================================================
+
+let lobbyData = null;
+
+function handleLobbyUpdate(data) {
+    if (!data) return;
+    lobbyData = data;
+    updateLobbyPlayersInfo(data);
+    
+    // Проверяем, все ли готовы
+    const players = data.players;
+    const player1 = players?.player1;
+    const player2 = players?.player2;
+    const p1Ready = player1?.isReady || false;
+    const p2Ready = player2?.isReady || false;
+    
+    // Если оба игрока готовы (или только один, а второго нет) — запускаем игру
+    const hasPlayer2 = player2 !== null && player2 !== undefined;
+    const bothReady = p1Ready && (!hasPlayer2 || p2Ready);
+    
+    if (bothReady && data.status === 'lobby') {
+        // Запускаем игру
+        document.getElementById('lobby-status').textContent = '🚀 Все готовы! Начинаем игру...';
+        setTimeout(() => {
+            initializeGame(currentGameId);
+        }, 500);
+    }
+}
+
+function updateLobbyPlayersInfo(data) {
+    const container = document.getElementById('lobby-players-list');
+    if (!container) return;
+    
+    const players = data?.players || {};
+    const player1 = players.player1;
+    const player2 = players.player2;
+    
+    let html = '';
+    
+    // Игрок 1 (хост)
+    if (player1) {
+        const classEmoji = CLASSES[player1.class]?.emoji || '👤';
+        const className = CLASSES[player1.class]?.name || 'Не выбран';
+        const readyStatus = player1.isReady ? '✅ Готов' : '⏳ Не готов';
+        const isMe = player1.uid === getCurrentUser()?.uid;
+        html += `
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; background:${isMe ? '#2a2f45' : '#1a1f30'}; border-radius:8px; border:${isMe ? '1px solid #f0c040' : '1px solid transparent'};">
+                <div>
+                    <span style="font-size:20px;">${classEmoji}</span>
+                    <span style="font-weight:bold; margin-left:6px;">${player1.name || 'Игрок 1'}</span>
+                    <span style="color:#888; font-size:12px; margin-left:6px;">(${className})</span>
+                    ${isMe ? ' <span style="color:#f0c040; font-size:11px;">(Вы)</span>' : ''}
+                </div>
+                <div style="font-size:13px; color:${player1.isReady ? '#4caf50' : '#888'};">${readyStatus}</div>
+            </div>
+        `;
+    } else {
+        html += `
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; background:#1a1f30; border-radius:8px; opacity:0.4;">
+                <div>
+                    <span style="font-size:20px;">👤</span>
+                    <span style="margin-left:6px;">Ожидание игрока...</span>
+                </div>
+                <div style="font-size:13px; color:#888;">⏳ Не подключен</div>
+            </div>
+        `;
+    }
+    
+    // Игрок 2
+    if (player2) {
+        const classEmoji = CLASSES[player2.class]?.emoji || '👤';
+        const className = CLASSES[player2.class]?.name || 'Не выбран';
+        const readyStatus = player2.isReady ? '✅ Готов' : '⏳ Не готов';
+        const isMe = player2.uid === getCurrentUser()?.uid;
+        html += `
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; background:${isMe ? '#2a2f45' : '#1a1f30'}; border-radius:8px; border:${isMe ? '1px solid #f0c040' : '1px solid transparent'};">
+                <div>
+                    <span style="font-size:20px;">${classEmoji}</span>
+                    <span style="font-weight:bold; margin-left:6px;">${player2.name || 'Игрок 2'}</span>
+                    <span style="color:#888; font-size:12px; margin-left:6px;">(${className})</span>
+                    ${isMe ? ' <span style="color:#f0c040; font-size:11px;">(Вы)</span>' : ''}
+                </div>
+                <div style="font-size:13px; color:${player2.isReady ? '#4caf50' : '#888'};">${readyStatus}</div>
+            </div>
+        `;
+    } else {
+        html += `
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; background:#1a1f30; border-radius:8px; opacity:0.4;">
+                <div>
+                    <span style="font-size:20px;">👤</span>
+                    <span style="margin-left:6px;">Свободный слот</span>
+                </div>
+                <div style="font-size:13px; color:#888;">⏳ Ожидание</div>
+            </div>
+        `;
+    }
+    
+    container.innerHTML = html;
+}
+
+// ============================================================
+// 2.2. ОБНОВЛЕНИЕ НИКА И КЛАССА В FIREBASE
+// ============================================================
+
+export async function updatePlayerName(gameId, playerId, name) {
+    const gameRef = firebase.firestore().collection('games').doc(gameId);
+    const updateData = {};
+    updateData[`players.${playerId}.name`] = name;
+    return gameRef.update(updateData);
+}
+
+export async function updatePlayerClass(gameId, playerId, className) {
+    const gameRef = firebase.firestore().collection('games').doc(gameId);
+    const updateData = {};
+    updateData[`players.${playerId}.class`] = className;
+    return gameRef.update(updateData);
 }
 
 // ============================================================
