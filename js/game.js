@@ -24,6 +24,20 @@ export function generateDungeon(totalFloors) {
     return dungeon;
 }
 
+// ----- ГЕНЕРАЦИЯ КОЛИЧЕСТВА ЭТАЖЕЙ НА ОСНОВЕ БРОСКОВ -----
+export function generateFloorsFromDice() {
+    // Каждый игрок бросает 1d6
+    const player1Roll = Math.floor(Math.random() * 6) + 1;
+    const player2Roll = Math.floor(Math.random() * 6) + 1;
+    const totalFloors = player1Roll + player2Roll;
+    return {
+        player1Roll,
+        player2Roll,
+        totalFloors: Math.min(totalFloors, 12) // Максимум 12 этажей
+    };
+}
+
+
 // ----- ГЕНЕРАЦИЯ ОДНОГО ЭТАЖА -----
 function generateFloor(floorNum, totalFloors) {
     const numRooms = Math.floor(Math.random() * 3) + 3; // 3-5 комнат
