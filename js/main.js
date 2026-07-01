@@ -803,40 +803,99 @@ window.selectRoom = function(roomId) {
     if (!player) return;
     
     const currentRoom = getRoom(gameState.dungeon, player.position);
-    if (currentRoom && !currentRoom.isCleared && currentRoom.type === 'combat') {
-        alert('⚔️ Сначала завершите бой!');
+    const targetRoom = getRoom(gameState.dungeon, roomId);
+    
+    if (!targetRoom) {
+        alert('❌ Комната не найдена');
         return;
     }
     
-    const targetRoom = getRoom(gameState.dungeon, roomId);
-    if (!targetRoom) return;
     // Проверяем, что комната на текущем этаже
     const dungeon = gameState.dungeon;
     if (targetRoom.floor !== (dungeon.currentFloor || 1)) {
         alert('🔒 Эта комната на другом этаже!');
         return;
     }
-    // Можно войти только в открытую комнату
+    
+    // Если комната ещё не открыта (скрыта) — нельзя войти
     if (!targetRoom.isRevealed && roomId !== player.position) {
         alert('🔒 Комната ещё не открыта!');
         return;
     }
     
-    // Обновляем позицию
+    // Проверяем, можно ли покинуть текущую комнату
+    if (currentRoom) {
+        // Если в текущей комнате есть живые враги — нельзя выйти
+        if (currentRoom.enemies && currentRoom.enemies.some(e => e.isAlive)) {
+            alert('⚔️ Сначала победите всех врагов в этой комнате!');
+            return;
+        }
+        // Если комната — выход, и она не пройдена, но мы не на боссе
+        if (currentRoom.type === 'exit' && !currentRoom.isCleared && roomId !== player.position) {
+            alert('🚪 Сначала откройте выход!');
+            return;
+        }
+    }
+    
+    // Если это комната с боссом, проверяем, жив ли босс
+    if (targetRoom.type === 'boss' && targetRoom.enemies && targetRoom.enemies.some(e => e.isAlive)) {
+        // Можно войти в комнату с боссом, но сразу начинается бой
+        // Разрешаем вход
+    }
+    
+    // Перемещаем игрока в новую комнату
+    const oldPos = player.position;
     player.position = roomId;
+    
+    // Добавляем игрока в список игроков в новой комнате
     if (!targetRoom.players) targetRoom.players = [];
     if (!targetRoom.players.includes(currentPlayerId)) {
         targetRoom.players.push(currentPlayerId);
     }
     
+    // Удаляем игрока из старой комнаты
     if (currentRoom && currentRoom.players) {
         currentRoom.players = currentRoom.players.filter(id => id !== currentPlayerId);
     }
     
+    // Если комната была скрыта — открываем её
+    if (!targetRoom.isRevealed) {
+        targetRoom.isRevealed = true;
+    }
+    
+    // Если комната с боссом и есть живые враги — начинаем бой
+    if (targetRoom.type === 'boss' && targetRoom.enemies && targetRoom.enemies.some(e => e.isAlive)) {
+        addLog(`👑 Босс в комнате ${targetRoom.id}!`);
+        // Переводим игру в режим боя
+        gameState.turn.phase = 'roll';
+        gameState.turn.currentPlayer = currentPlayerId;
+        updateGameState(currentGameId, {
+            players: gameState.players,
+            dungeon: gameState.dungeon,
+            turn: gameState.turn
+        });
+        updateUI(gameState, currentPlayerId, true);
+        return;
+    }
+    
+    // Если комната с боем и есть живые враги
+    if ((targetRoom.type === 'combat' || targetRoom.type === 'boss') && targetRoom.enemies && targetRoom.enemies.some(e => e.isAlive)) {
+        // Начинаем бой
+        gameState.turn.phase = 'roll';
+        gameState.turn.currentPlayer = currentPlayerId;
+        addLog(`⚔️ Бой в комнате ${targetRoom.id}!`);
+    } else {
+        // Иначе просто обновляем состояние
+        gameState.turn.phase = 'idle';
+    }
+    
     updateGameState(currentGameId, {
         players: gameState.players,
-        dungeon: gameState.dungeon
+        dungeon: gameState.dungeon,
+        turn: gameState.turn
     });
+    
+    updateUI(gameState, currentPlayerId, isMyTurn);
 };
 
 // ----- ВЫБОР ЦЕЛИ ДЛЯ АТАКИ -----
