@@ -93,8 +93,8 @@ function createFaceTexture(emoji, bgColor = '#ffffff') {
     ctx.lineWidth = 2;
     ctx.strokeRect(2, 2, 124, 124);
     
-    // Текст (эмодзи) — увеличен до 100px
-    ctx.font = '100px Arial';
+    // Текст (эмодзи) — увеличен до 120px для заполнения всей грани
+    ctx.font = '120px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#000';
@@ -103,11 +103,26 @@ function createFaceTexture(emoji, bgColor = '#ffffff') {
     return new THREE.CanvasTexture(canvas);
 }
 
+// ----- ПОВОРОТ КУБИКА ДЛЯ НУЖНОЙ ГРАНИ СВЕРХУ -----
+function getRotationForValue(value) {
+    // Вращения для каждой грани, чтобы она оказалась сверху
+    switch(value) {
+        case 1: return { x: 0, y: 0, z: 0 };           // ⚀
+        case 2: return { x: 0, y: 0, z: -Math.PI / 2 }; // ⚁
+        case 3: return { x: 0, y: 0, z: Math.PI };      // ⚂
+        case 4: return { x: 0, y: 0, z: Math.PI / 2 };  // ⚃
+        case 5: return { x: Math.PI / 2, y: 0, z: 0 };  // ⚄
+        case 6: return { x: -Math.PI / 2, y: 0, z: 0 }; // ⚅
+        default: return { x: 0, y: 0, z: 0 };
+    }
+}
+
 // ----- СОЗДАНИЕ КУБИКА С ТЕКСТУРАМИ -----
 function createDiceMesh(value) {
     const size = 0.9;
     const geometry = new THREE.BoxGeometry(size, size, size);
     
+    // Эмодзи для граней (1-6)
     const emojis = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
     const materials = emojis.map((emoji, index) => {
         const isSelected = (index + 1) === value;
@@ -153,6 +168,7 @@ export function rollDiceWithValues(values, callback = null) {
     positions.forEach((x, i) => {
         const value = values[i];
         const dice = createDiceMesh(value);
+        // Начальная позиция: высоко и со случайным смещением
         dice.position.set(
             x + (Math.random() - 0.5) * 0.5,
             3 + Math.random() * 2,
@@ -167,15 +183,20 @@ export function rollDiceWithValues(values, callback = null) {
         diceMeshes.push(dice);
         
         const targetY = -0.3 + Math.random() * 0.1;
+        // Ускоренное падение (600-1000 мс)
         const duration = 600 + Math.random() * 400;
         const startTime = Date.now();
         const startY = dice.position.y;
         const startRotX = dice.rotation.x;
         const startRotY = dice.rotation.y;
         const startRotZ = dice.rotation.z;
-        const targetRotX = (value - 1) * (Math.PI / 2) + (Math.random() - 0.5) * 0.3;
-        const targetRotY = Math.random() * Math.PI * 2;
-        const targetRotZ = (value - 1) * (Math.PI / 2) + (Math.random() - 0.5) * 0.3;
+        
+        // Целевое вращение для нужной грани сверху
+        const targetRot = getRotationForValue(value);
+        const targetRotX = targetRot.x;
+        const targetRotY = targetRot.y;
+        const targetRotZ = targetRot.z;
+        
         const offsetX = (Math.random() - 0.5) * 0.4;
         const offsetZ = (Math.random() - 0.5) * 0.4;
         
@@ -183,6 +204,7 @@ export function rollDiceWithValues(values, callback = null) {
             const elapsed = Date.now() - startTime;
             let progress = Math.min(elapsed / duration, 1);
             
+            // Easing с отскоком в конце
             let eased;
             if (progress < 0.7) {
                 const p = progress / 0.7;
@@ -193,21 +215,26 @@ export function rollDiceWithValues(values, callback = null) {
                 eased = 1 + bounce;
             }
             
+            // Позиция Y
             const currentY = startY + (targetY - startY) * Math.min(eased, 1.1);
             dice.position.y = Math.max(currentY, targetY);
             
+            // Смещение по X и Z (качение)
             const rollX = offsetX * (1 - progress);
             const rollZ = offsetZ * (1 - progress);
             dice.position.x = x + rollX;
             dice.position.z = rollZ;
             
-            dice.rotation.x = startRotX + (targetRotX - startRotX) * progress;
-            dice.rotation.y = startRotY + (targetRotY - startRotY) * progress * 1.5;
-            dice.rotation.z = startRotZ + (targetRotZ - startRotZ) * progress;
+            // Вращение с замедлением к целевым значениям
+            const rotProgress = 1 - Math.pow(1 - progress, 2);
+            dice.rotation.x = startRotX + (targetRotX - startRotX) * rotProgress;
+            dice.rotation.y = startRotY + (targetRotY - startRotY) * rotProgress * 1.5;
+            dice.rotation.z = startRotZ + (targetRotZ - startRotZ) * rotProgress;
             
             if (progress < 1) {
                 requestAnimationFrame(updateFall);
             } else {
+                // Фиксация
                 dice.position.y = targetY;
                 dice.position.x = x;
                 dice.position.z = 0;
@@ -218,74 +245,17 @@ export function rollDiceWithValues(values, callback = null) {
                 completed++;
                 if (completed === count) {
                     isRolling = false;
-                    alignDice(values);
+                    // Показываем результат
                     setTimeout(() => {
                         result.style.display = 'block';
                         if (rollCompleteCallback) rollCompleteCallback(values);
-                    }, 800);
+                    }, 500);
                 }
             }
         }
+        // Каскадная задержка
         setTimeout(updateFall, i * 100);
     });
-}
-
-// ----- ВЫРАВНИВАНИЕ КУБИКОВ -----
-function alignDice(values) {
-    const count = diceMeshes.length;
-    const spacing = 1.6;
-    const totalWidth = (count - 1) * spacing;
-    const startX = -totalWidth / 2;
-    
-    diceMeshes.forEach((mesh, i) => {
-        const targetX = startX + i * spacing;
-        const targetY = -0.3;
-        const startTime = Date.now();
-        const duration = 600;
-        const startXPos = mesh.position.x;
-        const startYPos = mesh.position.y;
-        const startRotY = mesh.rotation.y;
-        
-        function updateAlign() {
-            const elapsed = Date.now() - startTime;
-            const progress = Math.min(elapsed / duration, 1);
-            const eased = 1 - Math.pow(1 - progress, 3);
-            
-            mesh.position.x = startXPos + (targetX - startXPos) * eased;
-            mesh.position.y = startYPos + (targetY - startYPos) * eased;
-            mesh.position.z = 0;
-            mesh.rotation.x *= 0.95;
-            mesh.rotation.z *= 0.95;
-            mesh.rotation.y = startRotY + (0 - startRotY) * eased * 0.3;
-            
-            if (progress < 1) {
-                requestAnimationFrame(updateAlign);
-            } else {
-                mesh.position.x = targetX;
-                mesh.position.y = targetY;
-                mesh.position.z = 0;
-                mesh.rotation.x = 0;
-                mesh.rotation.z = 0;
-                highlightDiceValue(mesh, values[i]);
-            }
-        }
-        updateAlign();
-    });
-}
-
-// ----- ПОДСВЕТКА ВЕРХНЕЙ ГРАНИ -----
-function highlightDiceValue(mesh, value) {
-    if (mesh.material && Array.isArray(mesh.material)) {
-        mesh.material.forEach((mat, i) => {
-            if (i + 1 === value) {
-                mat.emissive.setHex(0x444422);
-                mat.emissiveIntensity = 0.3;
-            } else {
-                mat.emissive.setHex(0x000000);
-                mat.emissiveIntensity = 0;
-            }
-        });
-    }
 }
 
 // ----- ОЧИСТКА КУБИКОВ -----
