@@ -88,13 +88,18 @@ export function rollDice(count = 2, callback = null) {
     rollDiceWithValues(values, callback);
 }
 
-// ----- БРОСОК КУБИКОВ С ЗАДАННЫМИ ЗНАЧЕНИЯМИ -----
 export function rollDiceWithValues(values, callback = null) {
     if (isRolling) return;
     isRolling = true;
     rollCompleteCallback = callback;
     
     clearDice();
+    
+    // Показываем контейнер с кубиками заранее
+    const container = document.getElementById('dice-container');
+    const result = document.getElementById('dice-result');
+    container.style.display = 'flex';
+    result.style.display = 'none'; // Скрываем результат до окончания анимации
     
     const count = values.length;
     const spacing = 1.2;
@@ -115,7 +120,8 @@ export function rollDiceWithValues(values, callback = null) {
         diceMeshes.push(dice);
         
         const targetY = -0.3 + Math.random() * 0.1;
-        const duration = 800 + Math.random() * 400;
+        // Увеличиваем длительность анимации с 800-1200 до 1200-1800 мс
+        const duration = 1200 + Math.random() * 600;
         const startTime = Date.now();
         const startY = dice.position.y;
         const startRotX = dice.rotation.x;
@@ -128,6 +134,7 @@ export function rollDiceWithValues(values, callback = null) {
         function updateFall() {
             const elapsed = Date.now() - startTime;
             const progress = Math.min(elapsed / duration, 1);
+            // Более плавное замедление в конце
             const eased = 1 - Math.pow(1 - progress, 3);
             
             dice.position.x = x + offsetX * (1 - eased);
@@ -135,7 +142,7 @@ export function rollDiceWithValues(values, callback = null) {
             dice.position.z = offsetZ * (1 - eased);
             dice.rotation.x = startRotX + (targetRotX - startRotX) * eased;
             dice.rotation.z = startRotZ + (targetRotZ - startRotZ) * eased;
-            dice.rotation.y += 0.03;
+            dice.rotation.y += 0.02;
             
             if (progress < 1) {
                 requestAnimationFrame(updateFall);
@@ -146,14 +153,23 @@ export function rollDiceWithValues(values, callback = null) {
                 completed++;
                 if (completed === count) {
                     isRolling = false;
+                    // После падения выравниваем и показываем результат с задержкой
                     alignDice(values);
-                    if (rollCompleteCallback) rollCompleteCallback(values);
+                    // Показываем результат через 1.5 секунды после падения
+                    setTimeout(() => {
+                        result.style.display = 'block';
+                        if (rollCompleteCallback) rollCompleteCallback(values);
+                    }, 1500);
                 }
             }
         }
-        updateFall();
+        // Добавляем задержку перед началом падения для каждого кубика (каскад)
+        setTimeout(() => {
+            updateFall();
+        }, i * 150);
     });
 }
+
 
 function createDiceMesh(value) {
     const size = 0.8;
@@ -185,7 +201,7 @@ function alignDice(values) {
         const targetX = startX + i * spacing;
         const targetY = -0.3;
         const startTime = Date.now();
-        const duration = 600;
+        const duration = 800; // Увеличено с 600 до 800
         const startXPos = mesh.position.x;
         const startYPos = mesh.position.y;
         
@@ -215,6 +231,7 @@ function alignDice(values) {
         updateAlign();
     });
 }
+
 
 function highlightDiceValue(mesh, value) {
     if (mesh.material && Array.isArray(mesh.material)) {
