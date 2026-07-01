@@ -1,5 +1,5 @@
 // ============================================================
-// LEGENDICE - main.js (ПОЛНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ)
+// LEGENDICE - main.js (ФИНАЛЬНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ)
 // ============================================================
 
 // ----- ИМПОРТЫ -----
@@ -488,34 +488,35 @@ async function initializeGame(gameId) {
     document.getElementById('game-screen').style.display = 'flex';
     setupGameUI();
 }
+
 // ============================================================
 // 6. НАСТРОЙКА UI
 // ============================================================
 
 function setupGameUI() {
-   document.getElementById('btn-roll').addEventListener('click', function() {
-    if (!isMyTurn) { alert('⏳ Сейчас не ваш ход!'); return; }
-    const room = getRoom(gameState.dungeon, gameState.players[currentPlayerId]?.position);
-    if (!room) {
-        alert('❌ Комната не найдена');
-        return;
-    }
-    // Разрешаем бросок только в боевых комнатах с живыми врагами
-    if (room.type !== 'combat' && room.type !== 'boss') {
-        alert('⏳ Здесь нельзя бросить кубики');
-        return;
-    }
-    if (room.isCleared) {
-        alert('⏳ Комната уже зачищена');
-        return;
-    }
-    const hasAlive = room.enemies?.some(e => e.isAlive);
-    if (!hasAlive) {
-        alert('⏳ В комнате нет врагов');
-        return;
-    }
-    handleRollDice();
-});
+    document.getElementById('btn-roll').addEventListener('click', function() {
+        if (!isMyTurn) { alert('⏳ Сейчас не ваш ход!'); return; }
+        const room = getRoom(gameState.dungeon, gameState.players[currentPlayerId]?.position);
+        if (!room) {
+            alert('❌ Комната не найдена');
+            return;
+        }
+        // Разрешаем бросок только в боевых комнатах с живыми врагами
+        if (room.type !== 'combat' && room.type !== 'boss') {
+            alert('⏳ Здесь нельзя бросить кубики');
+            return;
+        }
+        if (room.isCleared) {
+            alert('⏳ Комната уже зачищена');
+            return;
+        }
+        const hasAlive = room.enemies?.some(e => e.isAlive);
+        if (!hasAlive) {
+            alert('⏳ В комнате нет врагов');
+            return;
+        }
+        handleRollDice();
+    });
     
     document.getElementById('btn-inventory').addEventListener('click', showInventoryModal);
     document.getElementById('btn-map').addEventListener('click', showMapModal);
@@ -923,7 +924,6 @@ function sendChat() {
 // 12. ВЫБОР КОМНАТЫ
 // ============================================================
 
-// ----- ВЫБОР КОМНАТЫ (ИСПРАВЛЕННАЯ ЛОГИКА) -----
 window.selectRoom = function(roomId) {
     if (!gameState || !currentPlayerId) return;
     const player = gameState.players[currentPlayerId];
@@ -958,6 +958,12 @@ window.selectRoom = function(roomId) {
         if (currentRoom.type === 'exit' && !currentRoom.isCleared) {
             alert('🚪 Выход ещё не открыт! Зачистите все комнаты этажа.');
             return;
+        }
+        
+        // Если это боевая комната и все враги мертвы — отмечаем как зачищенную
+        if (isCombatRoom && !hasAliveEnemies) {
+            currentRoom.isCleared = true;
+            currentRoom.isRevealed = true;
         }
     }
     
@@ -1002,77 +1008,6 @@ window.selectRoom = function(roomId) {
     
     updateUI(gameState, currentPlayerId, isMyTurn);
 };
-    
-    // ==========================================================
-    // НОВАЯ ЛОГИКА ПРОВЕРКИ ВЫХОДА ИЗ КОМНАТЫ
-    // ==========================================================
-    if (currentRoom) {
-        // Проверяем, можно ли покинуть комнату
-        const hasAliveEnemies = currentRoom.enemies && currentRoom.enemies.some(e => e.isAlive);
-        const isCombatRoom = currentRoom.type === 'combat' || currentRoom.type === 'boss';
-        
-        // Если это боевая комната и есть живые враги — нельзя выйти
-        if (isCombatRoom && hasAliveEnemies) {
-            alert('⚔️ Сначала победите всех врагов в этой комнате!');
-            return;
-        }
-        
-        // Если это комната выхода — можно выйти только если она пройдена
-        if (currentRoom.type === 'exit' && !currentRoom.isCleared) {
-            alert('🚪 Выход ещё не открыт! Зачистите все комнаты этажа.');
-            return;
-        }
-        
-        // Комнаты: сундук, магазин, отдых — можно покидать всегда
-        // Комнаты с боссом — можно покидать, если босс мёртв
-        if (isCombatRoom && !hasAliveEnemies) {
-            // Все враги мертвы — можно выйти
-            currentRoom.isCleared = true;
-            currentRoom.isRevealed = true;
-        }
-    }
-    
-    // Перемещаем игрока
-    player.position = roomId;
-    
-    if (!targetRoom.players) targetRoom.players = [];
-    if (!targetRoom.players.includes(currentPlayerId)) {
-        targetRoom.players.push(currentPlayerId);
-    }
-    
-    if (currentRoom && currentRoom.players) {
-        currentRoom.players = currentRoom.players.filter(id => id !== currentPlayerId);
-    }
-    
-    if (!targetRoom.isRevealed) {
-        targetRoom.isRevealed = true;
-    }
-    
-    // Проверяем, есть ли живые враги в целевой комнате (если это боевая)
-    const hasTargetEnemies = targetRoom.enemies && targetRoom.enemies.some(e => e.isAlive);
-    if ((targetRoom.type === 'combat' || targetRoom.type === 'boss') && hasTargetEnemies) {
-        addLog(`⚔️ Бой в комнате ${targetRoom.id}!`);
-        gameState.turn.phase = 'roll';
-        gameState.turn.currentPlayer = currentPlayerId;
-        updateGameState(currentGameId, {
-            players: gameState.players,
-            dungeon: gameState.dungeon,
-            turn: gameState.turn
-        });
-        updateUI(gameState, currentPlayerId, true);
-        return;
-    }
-    
-    gameState.turn.phase = 'idle';
-    updateGameState(currentGameId, {
-        players: gameState.players,
-        dungeon: gameState.dungeon,
-        turn: gameState.turn
-    });
-    
-    updateUI(gameState, currentPlayerId, isMyTurn);
-};
-
 
 // ============================================================
 // 13. ВЫБОР ЦЕЛИ
